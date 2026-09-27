@@ -426,7 +426,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: _selectedCleanerId == null ? AppColors.primaryLight.withOpacity(0.5) : Colors.white,
+                          color: _selectedCleanerId == null ? AppColors.primaryLight.withValues(alpha: 0.5) : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: _selectedCleanerId == null ? AppColors.primary : AppColors.outline,
@@ -435,22 +435,35 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                         child: Row(
                           children: [
-                            Radio<String?>(
-                              value: null,
-                              groupValue: _selectedCleanerId,
-                              activeColor: AppColors.primary,
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedCleanerId = null;
-                                  _selectedCleaner = null;
-                                });
-                              },
+                            Container(
+                              width: 20,
+                              height: 20,
+                              margin: const EdgeInsets.only(right: 10),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: _selectedCleanerId == null ? AppColors.primary : AppColors.outlineVariant,
+                                  width: 2,
+                                ),
+                              ),
+                              child: _selectedCleanerId == null
+                                  ? Center(
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
                             ),
                             Container(
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.12),
+                                color: AppColors.primary.withValues(alpha: 0.12),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
@@ -484,9 +497,9 @@ class _BookingScreenState extends State<BookingScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.warmAmber.withOpacity(0.1),
+                          color: AppColors.warmAmber.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.warmAmber.withOpacity(0.3)),
+                          border: Border.all(color: AppColors.warmAmber.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,7 +524,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppColors.primaryLight.withOpacity(0.35) : Colors.white,
+                            color: isSelected ? AppColors.primaryLight.withValues(alpha: 0.35) : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isSelected ? AppColors.primary : AppColors.outline,
@@ -533,16 +546,29 @@ class _BookingScreenState extends State<BookingScreen> {
                                   Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Radio<String?>(
-                                        value: cleaner.id,
-                                        groupValue: _selectedCleanerId,
-                                        activeColor: AppColors.primary,
-                                        onChanged: (val) {
-                                          setState(() {
-                                            _selectedCleanerId = val;
-                                            _selectedCleaner = cleaner;
-                                          });
-                                        },
+                                      Container(
+                                        width: 20,
+                                        height: 20,
+                                        margin: const EdgeInsets.only(top: 12, right: 10),
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isSelected ? AppColors.primary : AppColors.outlineVariant,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: isSelected
+                                            ? Center(
+                                                child: Container(
+                                                  width: 10,
+                                                  height: 10,
+                                                  decoration: const BoxDecoration(
+                                                    color: AppColors.primary,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                              )
+                                            : null,
                                       ),
                                       // Resilient Avatar
                                       ClipOval(
@@ -586,7 +612,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                   decoration: BoxDecoration(
-                                                    color: AppColors.primary.withOpacity(0.1),
+                                                    color: AppColors.primary.withValues(alpha: 0.1),
                                                     borderRadius: BorderRadius.circular(12),
                                                   ),
                                                   child: Text(

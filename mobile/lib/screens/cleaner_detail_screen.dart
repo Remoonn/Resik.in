@@ -80,14 +80,14 @@ class CleanerDetailScreen extends StatelessWidget {
                                   errorBuilder: (context, error, stackTrace) => Container(
                                     width: 96,
                                     height: 96,
-                                    color: AppColors.primary.withOpacity(0.1),
+                                    color: AppColors.primary.withValues(alpha: 0.1),
                                     child: const Icon(Icons.person, size: 54, color: AppColors.primary),
                                   ),
                                 )
                               : Container(
                                   width: 96,
                                   height: 96,
-                                  color: AppColors.primary.withOpacity(0.1),
+                                  color: AppColors.primary.withValues(alpha: 0.1),
                                   child: const Icon(Icons.person, size: 54, color: AppColors.primary),
                                 ),
                         ),
@@ -121,7 +121,7 @@ class CleanerDetailScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
+                          color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -137,7 +137,7 @@ class CleanerDetailScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.emerald.withOpacity(0.1),
+                          color: AppColors.emerald.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -238,9 +238,9 @@ class CleanerDetailScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.warmAmber.withOpacity(0.12),
+                    color: AppColors.warmAmber.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.warmAmber.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.warmAmber.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,9 +304,9 @@ class CleanerDetailScreen extends StatelessWidget {
                             .map((skill) => Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.08),
+                                    color: AppColors.primary.withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+                                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
                                   ),
                                   child: Text(
                                     _formatSkill(skill),
@@ -494,7 +494,7 @@ class CleanerDetailScreen extends StatelessWidget {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
