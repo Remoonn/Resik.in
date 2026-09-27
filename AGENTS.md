@@ -1,28 +1,43 @@
 # AGENTS.md — Onboarding & Operating Guide AI Coding Assistant (Resik.in)
 
-> **Status:** Active Source of Truth Guidance for AI Coding Assistants  
+> **Status:** Active Operational & Behavioral Guide for AI Coding Assistants  
 > **Repository:** Resik.in — Prototipe Aplikasi Jasa Kebersihan On-Demand  
 > **Target Pengguna AI:** Claude Code, Codex, Antigravity, Cursor, dan AI Agents lainnya.
 
 ---
 
-## 1. Ringkasan Proyek & Tujuan Utama
-**Resik.in** adalah aplikasi prototipe layanan kebersihan *on-demand* (berbasis web responsif) yang mendigitalisasi pemesanan jasa kebersihan tempat tinggal dan komersial. Sistem ini menggantikan pemesanan konvensional berbasis chat manual dengan alur terstruktur:
-- **Katalog 4 Layanan Spesifik:** Pembersihan Rumah, Kos, Kantor, dan Pasca Renovasi.
-- **Smart Petugas Matching:** Rekomendasi petugas berbasis aturan (*rule-based*) transparan.
-- **Penugasan Hibrida (*Hybrid Assignment*):** Pilihan rekomendasi oleh pelanggan yang dikonfirmasi oleh Admin, dengan alur penugasan langsung (*fallback*) oleh Admin.
-- **Pelacakan 7 Tahapan Status:** Memberikan transparansi progres pengerjaan lapangan secara bertahap kepada pelanggan.
-- **Quality Report Digital:** Akuntabilitas hasil kerja berupa checklist area bersih dan komparasi foto *Before/After*.
+## 1. Ringkasan Proyek & Struktur Dokumentasi
+
+**Resik.in** adalah prototipe aplikasi mobile jasa kebersihan *on-demand* (Rumah, Kos, Kantor, Pasca Renovasi) berbasis Flutter (Android & iOS) yang mendigitalisasi alur pemesanan manual menjadi sistem terstruktur dengan rekomendasi petugas deterministik, pelacakan status bertahap, dan pelaporan mutu digital (*Quality Report*).
+
+### Struktur Dokumentasi Resmi (Repository Directory):
+Seluruh spesifikasi, aturan bisnis, dan kontrak teknis dipisahkan secara modular pada direktori `docs/`:
+
+```text
+AGENTS.md               # Panduan perilaku, coding principles, dan workflow AI agent
+CLAUDE.md               # Instruksi operasional spesifik Claude / Claude Code
+
+docs/
+├── PRD-Resik.in.md     # Source of Truth (SOT) Fungsional, Scope, dan Requirement Produk
+├── BUSINESS-RULES.md   # Aturan bisnis detail, formula kalkulasi, dan validasi operasional
+├── ARCHITECTURE.md     # Arsitektur sistem, tech stack, dan alur perakitan dashboard
+├── DATA-DICTIONARY.md  # Definisi entitas, kamus data, tipe, dan batasan skema database
+├── API.md              # Kontrak endpoint REST API dan format respons JSON standar
+├── SECURITY.md         # Invarian keamanan, hak akses RBAC, dan penanganan file upload
+├── TESTING.md          # Strategi pengujian otomatis dan skenario uji aturan kritis
+└── ROADMAP.md          # Milestone rilis fitur: V1 (Prototype), V1.1 (Phase 2), V2 (Phase 3)
+```
 
 ---
 
 ## 2. Source of Truth & Integritas Requirement
-- **Dokumen Acuan Tunggal:** `docs/PRD-Resik.in.md` adalah **Source of Truth (SOT)** mutlak untuk seluruh spesifikasi fungsional, batasan, alur bisnis, dan skema data.
-- **Aturan Perubahan Requirement:** AI **DILARANG KERAS** menambah, mengubah, mengurangi, atau memodifikasi requirement secara diam-diam tanpa persetujuan eksplisit dari Tech Lead / User.
-- **Prosedur Resolusi Konflik:** Jika ditemukan kontradiksi antara isi PRD, skema database (`database/schema.sql`), dan kode berjalan:
+
+- **Dokumen Acuan Tunggal:** [docs/PRD-Resik.in.md](docs/PRD-Resik.in.md) bersama [docs/BUSINESS-RULES.md](docs/BUSINESS-RULES.md) adalah **Source of Truth (SOT) mutlak** untuk seluruh spesifikasi fungsional, batasan sistem, alur bisnis, dan skema data.
+- **Larangan Modifikasi Scope Sepihak:** AI **DILARANG KERAS** menambah, mengubah, mengurangi, atau memodifikasi requirement secara diam-diam tanpa instruksi eksplisit dari Tech Lead / User.
+- **Prosedur Resolusi Konflik:** Jika ditemukan kontradiksi antara dokumen di `docs/`, skema database (`database/schema.sql`), dan kode berjalan:
   1. **JANGAN MENEBAK** atau mengambil keputusan sepihak.
   2. **STOP** dan paparkan titik konflik secara objektif.
-  3. Minta arahan dan keputusan dari Tech Lead sebelum melanjutkan implementasi.
+  3. Minta arahan dan keputusan dari Tech Lead sebelum melanjutkan implementasi kode.
 
 ---
 
@@ -30,211 +45,78 @@
 
 | Komponen | Teknologi | Keterangan & Catatan Arsitektur |
 | :--- | :--- | :--- |
-| **Frontend** | HTML5, CSS3, Vanilla JavaScript | Tidak menggunakan framework (No React/Vue/Angular/Tailwind). Responsif untuk browser desktop dan *mobile*. |
-| **Dashboard Build System** | Node.js Script (`scripts/build-dashboard.js`) | **PENTING:** Halaman pelanggan dirakit dari `public/dashboard.template.html` + komponen di `public/components/` dan modul JS di `public/js/modules/`. **Jangan mengedit langsung `public/dashboard.html` atau `public/js/dashboard.js`** karena akan tertimpa otomatis saat build/request dev. |
-| **Admin & Cleaner UI** | `public/admin.html` & `public/cleaner.html` | Dasbor mandiri untuk operasional Admin (`public/js/admin.js`) dan Petugas Lapangan (`public/js/cleaner.js`). |
-| **Backend API** | Node.js + Express.js | Arsitektur ES Module (`"type": "module"`). Router modular berada di direktori `routes/` (`services.js`, `cleaners.js`, `orders.js`). |
+| **Frontend UI (Mobile)** | Flutter (Dart) | Aplikasi mobile lintas platform (Android & iOS) di direktori `mobile/`. Mencakup antarmuka Pelanggan, Petugas Lapangan, dan Admin. |
+| **Backend REST API** | Node.js + Express.js | Arsitektur ES Module (`"type": "module"`) di direktori `backend/`. Router modular berada di `backend/routes/` (`services.js`, `cleaners.js`, `orders.js`, `auth.js`, `quality-reports.js`). |
 | **Database** | Supabase PostgreSQL | Penyimpanan relasional utama (Kawasan Singapore). Skema di `database/schema.sql`. Memiliki *fallback* in-memory store (`lib/supabase.js`) saat offline/demo. |
-| **Autentikasi & Sesi** | Supabase Auth + JWT Session | Manajemen sesi aman multi-peran dengan validasi token/cookie yang kompatibel dengan arsitektur serverless. |
+| **Autentikasi & Sesi** | Supabase Auth + JWT Session | **Single source of truth:** Dikelola sepenuhnya oleh Supabase Auth (`auth.users`). Tidak ada penyimpanan password lokal atau `password_hash` di tabel aplikasi. |
 | **Penyimpanan Berkas** | Supabase Storage (`quality-reports`) | Bucket khusus untuk menyimpan berkas dokumentasi foto *Before* dan *After*. |
-| **Hosting** | Vercel | Serverless deployment platform. |
+| **Hosting Backend** | Vercel / Cloud | REST API backend server platform. |
 
 ---
 
-## 4. Role Pengguna & Batasan Akses (RBAC)
-
-Setiap endpoint dan antarmuka terikat pada hak akses spesifik:
-
-| Role | Batas Akses & Hak Operasional | Larangan Keras |
-| :--- | :--- | :--- |
-| **`customer`**<br>(Pelanggan) | - Akses katalog 4 layanan.<br>- Mengisi jadwal, lokasi, detail properti, dan simulasi pembayaran dummy.<br>- Memilih rekomendasi petugas (*smart matching*) atau opsi serahkan ke admin.<br>- Memantau status stepper pesanan miliknya secara realtime.<br>- Melihat dokumen Quality Report pesanan miliknya.<br>- Mengirimkan rating dan ulasan pesanan selesai. | - Dilarang mengakses data pesanan milik pelanggan lain (wajib filter `customer_id` / `customer_email`).<br>- Dilarang mengakses dasbor admin atau cleaner.<br>- Dilarang memanipulasi status operasional petugas. |
-| **`cleaner`**<br>(Petugas) | - Akses dasbor kerja petugas (`/cleaner.html`).<br>- Melihat daftar tugas kebersihan yang ditugaskan ke dirinya.<br>- Memperbarui status lapangan: `Menuju Lokasi`, `Tiba di Lokasi`, `Sedang Dikerjakan`.<br>- Mengisi formulir Quality Report (checklist area, foto Before/After terkompresi, catatan).<br>- Melihat profil dan riwayat pekerjaan sendiri. | - Dilarang mengakses atau memperbarui tugas milik petugas lain.<br>- Dilarang melakukan konfirmasi penugasan awal (wewenang Admin).<br>- Dilarang mengakses master data sistem. |
-| **`admin`**<br>(Pengelola) | - Akses dasbor pengelola terpusat (`/admin.html`).<br>- Mengaktifkan/menonaktifkan katalog layanan.<br>- Mengelola data master petugas: tambah data baru, ubah status operasional (`Aktif`, `Sibuk`, `Cuti`, `Nonaktif`).<br>- Konfirmasi penugasan hibrida (menyetujui pilihan customer atau alokasi langsung).<br>- Membatalkan pesanan disertai pencatatan alasan.<br>- Melihat catatan audit (`status_logs`) dan ekspor data ke CSV. | - Dilarang menghapus riwayat audit status.<br>- Dilarang mengabaikan validasi jadwal ganda petugas saat alokasi. |
-
----
-
-## 5. Fitur Inti & Alur Bisnis Utama
-
-- **FR-01 Katalog Layanan:** Menampilkan 4 jenis layanan: Pembersihan Rumah, Kos, Kantor, dan Pasca Renovasi beserta estimasi durasi dan tarif dasar.
-- **FR-02 Penjadwalan Terstruktur:** Pemilihan tanggal fleksibel ($\ge \text{H+0}$) dan slot jam kedatangan standar (misal: 08.00, 10.00, 13.00, 15.00 WIB).
-- **FR-03 Pemesanan & Pembayaran Dummy:** Formulir alamat lengkap, patokan, luas area, dan catatan. Transaksi disimulasikan: `Belum Bayar` $\rightarrow$ Pelanggan klik "Bayar Sekarang (Simulasi)" $\rightarrow$ `Sudah Bayar` $\rightarrow$ Order tersimpan dengan status awal `Menunggu Konfirmasi`.
-- **FR-04 Manajemen Data Master Petugas:** Admin mengelola nama, nomor WhatsApp, spesialisasi keahlian, pengalaman tahun, dan status operasional.
-- **FR-05 Penugasan Petugas Hibrida (*Hybrid Assignment*):**
-  - **Jalur Rekomendasi (Pilihan Pelanggan):** Pelanggan memilih salah satu kandidat matching $\rightarrow$ Pesanan masuk admin bertanda "Pilihan Pelanggan: [Nama]" $\rightarrow$ Admin menekan tombol "Konfirmasi Penugasan" $\rightarrow$ Status: `Petugas Ditugaskan`.
-  - **Jalur Fallback (Penugasan Langsung):** Pelanggan melewati opsi / pilih default "Pilihkan Otomatis oleh Admin" $\rightarrow$ Admin memilih petugas berstatus `Aktif` dari dropdown $\rightarrow$ Admin klik "Tugaskan Langsung" $\rightarrow$ Status: `Petugas Ditugaskan`.
-- **FR-06 Pelacakan 7 Tahap Status:** Pembaruan status transparan dengan indikator stepper visual.
-- **FR-07 Manajemen Pengguna & Riwayat:** Autentikasi multi-role dan isolasi riwayat order per user.
-- **FR-08 Smart Petugas Matching:** Mesin rekomendasi rule-based di langkah pemesanan.
-- **FR-09 Quality Report Digital:** Formulir penyelesaian kerja berbasis bukti foto dan checklist.
-- **FR-10 Cleaning Plan (Fase 3 / Should Have):** Penjadwalan berulang berkala (mingguan/dua mingguan).
-
-```mermaid
-flowchart TD
-    A["1. Pelanggan Memilih Layanan"] --> B["2. Tentukan Jadwal & Alamat"]
-    B --> C{"3. Smart Matching"}
-    C -->|Pelanggan Pilih Kandidat| D1["Tag: Pilihan Pelanggan"]
-    C -->|Lewati / Opsi Default| D2["Tag: Alokasi Admin"]
-    D1 --> E["4. Simulasi Bayar Dummy (Sudah Bayar)"]
-    D2 --> E
-    E --> F["5. Status: Menunggu Konfirmasi"]
-    F --> G["6. Status: Dikonfirmasi"]
-    G --> H{"7. Admin Penugasan"}
-    H -->|Konfirmasi Pilihan| I["Status: Petugas Ditugaskan"]
-    H -->|Pilih Petugas Langsung| I
-    I --> J["8. Petugas: Menuju Lokasi"]
-    J --> K["9. Petugas: Tiba di Lokasi"]
-    K --> L["10. Petugas: Sedang Dikerjakan"]
-    L --> M["11. Submit Quality Report (Checklist + Foto Before/After)"]
-    M --> N["12. Status: Selesai & Laporan Terkunci"]
-```
-
----
-
-## 6. Urutan 7 Status Pekerjaan (*Strict Sequential Lifecycle*)
-
-Siklus status pekerjaan wajib mengikuti urutan baku 7 tahap berikut secara sekuensial:
-
-$$\text{Menunggu Konfirmasi} \longrightarrow \text{Dikonfirmasi} \longrightarrow \text{Petugas Ditugaskan} \longrightarrow \text{Menuju Lokasi} \longrightarrow \text{Tiba di Lokasi} \longrightarrow \text{Sedang Dikerjakan} \longrightarrow \text{Selesai}$$
-
-1. **`Menunggu Konfirmasi`**: Pesanan berhasil dibuat oleh pelanggan setelah simulasi pembayaran sukses.
-2. **`Dikonfirmasi`**: Admin meninjau dan menyetujui pesanan untuk diproses alokasi petugas.
-3. **`Petugas Ditugaskan`**: Petugas resmi ditetapkan (baik melalui konfirmasi pilihan pelanggan atau penugasan langsung admin). Tugas muncul di dasbor petugas.
-4. **`Menuju Lokasi`**: Petugas menekan tombol berangkat menuju alamat pelanggan.
-5. **`Tiba di Lokasi`**: Petugas menekan tombol konfirmasi telah sampai di lokasi pengerjaan.
-6. **`Sedang Dikerjakan`**: Petugas menekan tombol mulai bekerja; formulir Quality Report mulai terbuka di sisi petugas.
-7. **`Selesai`**: Petugas berhasil mengirimkan Quality Report lengkap (checklist + foto Before/After); pesanan terkunci permanen (*read-only*).
-
-> **Catatan Pembatalan:** Status `Dibatalkan` hanya dapat dipicu melalui aksi pembatalan khusus (misal oleh Admin) dan wajib mencatat alasan pembatalan ke dalam tabel `status_logs`.
-
----
-
-## 7. Aturan Smart Petugas Matching (*Rule-Based*)
-
-Modul rekomendasi petugas bersifat **murni berbasis aturan (*rule-based*)**, tidak menggunakan model machine learning atau AI prediksi.
-
-### Aturan Filter & Pembobotan:
-1. **Pemeriksaan Ketersediaan & Status:**
-   - Status operasional petugas wajib bernilai `Aktif`. Petugas `Sibuk`, `Cuti`, atau `Nonaktif` langsung dieliminasi.
-   - **Bebas Jadwal Bentrok (*Anti-Double Booking*):** Petugas tidak boleh memiliki penugasan lain yang bertabrakan pada tanggal (`tanggal_layanan`) dan slot jam (`jam_mulai`) yang sama.
-2. **Kesesuaian Keahlian (*Skill Matching*):**
-   - Petugas yang memiliki keahlian/spesialisasi sesuai kategori layanan yang dipesan (contoh: keahlian *Pasca Renovasi* untuk pesanan kategori *Pasca Renovasi*) diprioritaskan di posisi atas dengan badge **"Sangat Sesuai"**.
-3. **Perankingan Reputasi:**
-   - Kandidat diurutkan berdasarkan kombinasi nilai rating tertinggi ($\ge 4.5$) dan jumlah total pekerjaan sukses terbanyak.
-4. **Penyajian di Antarmuka:**
-   - Sistem menampilkan kartu rekomendasi berisi: foto, nama lengkap, badge keahlian, rating bintang, dan tahun pengalaman.
-   - Pelanggan diberikan kebebasan: memilih salah satu petugas rekomendasi, atau memilih opsi default *"Pilihkan Otomatis oleh Admin"*.
-
----
-
-## 8. Aturan Quality Report Digital & Unggah Foto Before/After
-
-Modul Quality Report merupakan instrumen akuntabilitas utama hasil kerja di lapangan:
-- **Aktor Pengisi:** Hanya dapat diisi dan dikirim oleh **Petugas Kebersihan (*Cleaner*)** yang ditugaskan.
-- **Kondisi Akses:** Formulir laporan hanya aktif ketika status pesanan adalah `Sedang Dikerjakan`.
-- **Komponen Wajib Laporan:**
-  1. **Checklist Area:** Mencentang area-area yang tuntas dibersihkan (Ruang Tamu, Kamar Mandi, Dapur, Jendela/Balkon, dll.).
-  2. **Foto Before:** Minimal 1 foto kondisi awal ruangan sebelum dibersihkan.
-  3. **Foto After:** Minimal 1 foto kondisi ruangan setelah tuntas dibersihkan.
-  4. **Catatan Petugas:** Ringkasan kondisi atau catatan khusus pengerjaan.
-- **Optimasi Gambar di Sisi Klien (*Mandatory Client-Side Compression*):**
-  - Foto dari kamera ponsel beresolusi tinggi **wajib dikompresi di browser menggunakan Canvas API** (`compressImage`) sebelum diunggah ke backend/storage.
-  - Ukuran target kompresi berkisar antara 1–2 MB per foto untuk menghemat kuota Supabase Storage dan mempercepat proses kirim pada koneksi seluler.
-- **Penyimpanan:** Berkas disimpan pada bucket Supabase Storage `quality-reports`.
-- **Dampak Finalisasi:**
-  - Menekan tombol "Kirim Laporan & Selesaikan" akan menyimpan data ke tabel `quality_reports`, mengubah status pesanan menjadi `Selesai`, mengunci laporan menjadi *read-only*, menambahkan akumulasi `total_pekerjaan` petugas, dan mengembalikan status petugas ke `Aktif`.
-  - Pelanggan dan Admin dapat membuka dokumen Quality Report secara transparan melalui modal rincian pesanan.
-
----
-
-## 9. Entitas & Skema Basis Data Utama
-
-Berikut adalah entitas utama yang wajib dijaga konsistensi relasi dan integritas kolomnya (sesuai `database/schema.sql`):
-
-- **`users`**: Akun pengguna sistem.
-  - Kolom: `id`, `nama`, `email`, `nomor_wa`, `password_hash`, `role` (`customer` | `cleaner` | `admin`), `created_at`.
-- **`services`**: Master katalog layanan.
-  - Kolom: `id`, `nama_layanan`, `kategori` (`rumah` | `kos` | `kantor` | `pasca_renovasi`), `deskripsi`, `durasi_estimasi`, `tarif_dasar`, `icon_name`, `is_active`.
-- **`cleaners`**: Profil profesional petugas kebersihan.
-  - Kolom: `id`, `user_id`, `nama`, `nomor_kontak`, `keahlian` (array/text), `pengalaman_tahun`, `rating_rata_rata`, `total_pekerjaan`, `status_operasional` (`Aktif` | `Sibuk` | `Cuti` | `Nonaktif`).
-- **`orders`**: Transaksi pemesanan layanan.
-  - Kolom: `id`, `customer_id`, `cleaner_id`, `service_id`, `alamat_lengkap`, `patokan_lokasi`, `luas_area`, `catatan_khusus`, `tanggal_layanan`, `jam_mulai`, `status_pembayaran` (`Belum Bayar` | `Sudah Bayar`), `status_pekerjaan` (7 status), `preferensi_petugas_id`, `created_at`.
-- **`quality_reports`**: Laporan verifikasi hasil kerja.
-  - Kolom: `id`, `order_id`, `cleaner_id`, `checklist_area` (JSON), `foto_before_url`, `foto_after_url`, `catatan_petugas`, `waktu_submit`.
-- **`status_logs`**: Log audit perubahan tahapan pesanan.
-  - Kolom: `id`, `order_id`, `status_sebelumnya`, `status_baru`, `diubah_oleh`, `waktu_perubahan`.
-- **`cleaning_plans`**: Langganan jadwal berkala (Fase 3).
-  - Kolom: `id`, `customer_id`, `service_id`, `cleaner_id`, `frekuensi`, `hari_tetap`, `jam_mulai`, `status_plan`.
-
----
-
-## 10. Konvensi Coding & Prinsip Perubahan Kode
+## 4. Konvensi Coding & Prinsip Rekayasa Perangkat Lunak
 
 - **Prinsip Perubahan Minimal (*Minimal Diff Principle*):**
-  - Lakukan perubahan dengan bedah kode presisi pada baris/fungsi yang relevan.
+  - Lakukan perubahan dengan bedah kode presisi hanya pada baris atau fungsi yang relevan.
   - **DILARANG** melakukan refactoring massal, restrukturisasi file yang tidak diminta, atau menghapus komentar yang ada tanpa instruksi eksplisit.
-- **Arsitektur Dashboard Assembly:**
-  - Kode sumber frontend dashboard pelanggan berada di `public/components/` (HTML) dan `public/js/modules/` (JS).
-  - Jika mengubah tampilan atau logika dashboard pelanggan, lakukan pada direktori komponen/modul tersebut, kemudian jalankan `npm run build` (atau biarkan auto-assemble berjalan saat server dev aktif).
+- **Arsitektur Pemisahan Tanggung Jawab (Separation of Concerns):**
+  - Kode backend berada di `backend/` dan mematuhi kontrak REST API pada `docs/API.md`.
+  - Kode mobile Flutter berada di `mobile/` dengan struktur modular (`models`, `services`, `screens`, `widgets`).
 - **Backend Style & Format Respons:**
-  - Gunakan syntax ES Module modern (`import` / `export`).
-  - Respons API wajib konsisten menggunakan amplop JSON:
+  - Gunakan sintaks ES Module modern (`import` / `export`).
+  - Respons API wajib konsisten menggunakan amplop JSON standar:
     - Sukses: `{ "success": true, "message": "...", "data": { ... } }`
-    - Gagal: `{ "success": false, "message": "...", "error": "..." }`
+    - Galat: `{ "success": false, "message": "...", "error": "..." }`
 - **Error Handling Komprehensif:**
-  - Setiap endpoint Express wajib membungkus logika asinkron dalam `try / catch` dan meneruskan error ke central JSON error handler.
+  - Setiap endpoint Express wajib membungkus logika asinkron dalam blok `try / catch` dan meneruskan galat ke central JSON error handler.
   - Jangan pernah membiarkan error Express membocorkan HTML trace stack ke klien.
 - **Immutability Data:**
-  - Buat objek/array baru saat transformasi data; jangan memutasi variabel state global secara serampangan.
+  - Selalu buat objek/array baru saat transformasi data; jangan memutasi variabel state global secara sembarangan.
 
 ---
 
-## 11. Keamanan, Otorisasi, Upload Berkas, & Anti-Double Booking
+## 5. Keamanan, Otorisasi, & Validasi Backend
 
-1. **Otorisasi Server-Side:**
-   - **JANGAN PERNAH** hanya mengandalkan pengecekan UI/JavaScript browser untuk membatasi akses role. Seluruh endpoint mutasi dan query sensitif wajib divalidasi di backend (Express middleware / RLS Supabase).
-   - Pastikan endpoint `GET /api/orders` menerapkan filter berbasis `customer_id` atau `customer_email` agar data pesanan antarpengguna tidak bocor.
+1. **Otorisasi Server-Side (RBAC Wajib):**
+   - **JANGAN PERNAH** hanya mengandalkan pengecekan antarmuka pengguna untuk membatasi akses peran. Seluruh endpoint mutasi dan query data wajib divalidasi di backend (Express middleware / RLS Supabase).
+   - Endpoint `GET /api/orders` wajib menerapkan isolasi peran:
+     - `customer`: hanya dapat membaca pesanannya sendiri (`customer_id = auth.uid()`).
+     - `cleaner`: hanya dapat membaca pesanan yang ditugaskan ke dirinya (`cleaner_id`).
+     - `admin`: memiliki hak membaca seluruh pesanan.
 2. **Pengelolaan Secrets & API Keys:**
    - Kunci sensitif `SUPABASE_SERVICE_ROLE_KEY` **HANYA BOLEH DIGUNAKAN DI SISI BACKEND** (`.env`).
    - **DILARANG KERAS** membocorkan service-role key ke frontend, file statis di `public/`, atau response JSON `/api/config`.
    - Frontend hanya boleh menerima `SUPABASE_URL` dan `SUPABASE_ANON_KEY`.
 3. **Pencegahan Double Booking (Bentrok Jadwal):**
-   - Backend wajib memvalidasi jadwal sebelum menyimpan penugasan (`cleaner_id`).
-   - Validasi: Tidak boleh ada pesanan aktif lain milik petugas bersangkutan pada kombinasi `tanggal_layanan` dan `jam_mulai` yang sama.
+   - Backend wajib memvalidasi jadwal sebelum menyimpan pesanan atau penugasan (`cleaner_id`).
+   - Validasi: Memperhitungkan `start_time`, `end_time = start_time + duration`, dan buffer operasional 30 menit sesuai [docs/BUSINESS-RULES.md](docs/BUSINESS-RULES.md).
 4. **Validasi & Penanganan Upload File:**
    - Periksa tipe MIME file gambar (`image/jpeg`, `image/png`, `image/webp`).
-   - Batasi ukuran body JSON/payload di Express (limit aman 25MB untuk base64 payload jika upload langsung, dengan kompresi client-side 1–2 MB).
+   - Foto wajib dikompresi di sisi browser (1–2 MB) sebelum diunggah ke Supabase Storage bucket `quality-reports`.
+5. **Integritas Lifecycle & Gerbang Pembayaran:**
+   - Admin dilarang mengonfirmasi pesanan (`Menunggu Konfirmasi` → `Dikonfirmasi`) jika `status_pembayaran != 'Sudah Bayar'`.
+   - Penugasan petugas (`POST /api/orders/:id/assign`) hanya diizinkan pada pesanan berstatus `Dikonfirmasi`.
+   - Transisi status lapangan (`Menuju Lokasi`, `Tiba di Lokasi`, `Sedang Dikerjakan`) adalah hak eksklusif Cleaner; transisi ke `Selesai` wajib melalui pengiriman Quality Report via `POST /api/quality-reports`. Admin dilarang mengubah status lapangan secara sembarangan.
 
 ---
 
-## 12. Cara Menjalankan Test & Build (Aturan Tanpa Mengarang Perintah)
+## 6. Cara Menjalankan Test & Build (Aturan Tanpa Mengarang Perintah)
 
-**ATURAN UTAMA:** Selalu periksa `package.json` terlebih dahulu. **JANGAN PERNAH MENGARANG COMMAND** (misal: jangan gunakan `jest`, `vite`, `mocha`, `npm run lint` jika tidak ada di script repository).
+**ATURAN UTAMA:** Selalu periksa `package.json` di `backend/` dan `pubspec.yaml` di `mobile/` terlebih dahulu. **JANGAN PERNAH MENGARANG COMMAND**.
 
-Script resmi yang terdaftar di repository:
-- **Menjalankan Test Suite:**
-  ```bash
-  npm test
-  ```
-  *(Mengeksekusi native Node.js test runner: `node --test test/*.test.js`). Pastikan seluruh test (100+ assertions) berstatus lulus (green) sebelum dan sesudah perubahan.*
-- **Merakit (*Build*) Dashboard:**
-  ```bash
-  npm run build
-  ```
-  *(Mengeksekusi `node scripts/build-dashboard.js` untuk meng-assemble HTML dan JS modular dashboard).*
-- **Menjalankan Server Mode Dev:**
-  ```bash
-  npm run dev
-  ```
-  *(Mengeksekusi `node --watch server.js` dengan hot-reload dan auto-build dashboard).*
-- **Menjalankan Server Mode Produksi:**
-  ```bash
-  npm start
-  ```
-  *(Mengeksekusi `node server.js`).*
+Script dan perintah resmi di repository:
+- **Backend REST API (`backend/`):**
+  - Menjalankan Test Suite Backend: `cd backend && npm test`
+  - Menjalankan Server Mode Dev: `cd backend && npm run dev`
+  - Menjalankan Server Mode Produksi: `cd backend && npm start`
+- **Mobile Flutter App (`mobile/`):**
+  - Menganalisis Kode Dart: `cd mobile && flutter analyze`
+  - Menjalankan Unit/Widget Test: `cd mobile && flutter test`
+  - Menjalankan Aplikasi di Emulator/Device: `cd mobile && flutter run`
 
 ---
 
-## 13. JANGAN DILAKUKAN (*Out-of-Scope PRD & Anti-Patterns*)
+## 7. Batasan & Larangan Keras (*Out-of-Scope & Anti-Patterns*)
 
 Untuk menjaga fokus skripsi dan stabilitas sistem, AI dilarang keras melakukan hal-hal berikut:
 
@@ -244,14 +126,14 @@ Untuk menjaga fokus skripsi dan stabilitas sistem, AI dilarang keras melakukan h
 - ❌ **JANGAN membuat modul payroll**, bagi hasil, atau transfer gaji petugas kebersihan.
 - ❌ **JANGAN membuat formulir registrasi mandiri untuk petugas kebersihan** (akun petugas didaftarkan secara internal oleh Admin).
 - ❌ **JANGAN membuat sistem manajemen inventaris stok bahan pembersih** atau pembukuan akuntansi laba-rugi perusahaan.
-- ❌ **JANGAN menerapkan algoritma Machine Learning yang rumit** yang memerlukan pelatihan dataset besar. Rekomendasi wajib murni rule-based.
-- ❌ **JANGAN mengganti tech stack utama** (Node.js/Express, Supabase, Vanilla HTML/CSS/JS) dengan React, Next.js, Vue, Tailwind, atau ORM berat tanpa instruksi eksplisit tertulis dari Tech Lead.
-- ❌ **JANGAN mengekspos credential rahasia** (`SUPABASE_SERVICE_ROLE_KEY`) ke frontend atau commit file rahasia ke repository.
+- ❌ **JANGAN menerapkan algoritma Machine Learning yang rumit** yang memerlukan pelatihan dataset besar. Rekomendasi wajib murni rule-based deterministik.
+- ❌ **JANGAN mengganti tech stack utama** (Frontend: Flutter / Dart, Backend: Node.js / Express, Database: Supabase) dengan stack lain tanpa instruksi eksplisit tertulis dari Tech Lead.
+- ❌ **JANGAN mengekspos credential rahasia** (`SUPABASE_SERVICE_ROLE_KEY`) ke frontend mobile atau commit file rahasia ke repository.
 - ❌ **JANGAN melakukan refactor besar-besaran** jika tiket tugas hanya meminta perbaikan atau penyesuaian minor.
 
 ---
 
-## 14. Workflow AI Coding Assistant
+## 8. Workflow AI Coding Assistant
 
 Setiap kali AI menerima instruksi atau tugas baru pada proyek Resik.in, jalankan siklus 5 tahap berikut:
 
@@ -260,7 +142,7 @@ Setiap kali AI menerima instruksi atau tugas baru pada proyek Resik.in, jalankan
 ```
 
 1. **INSPECT (Pemeriksaan Awal):**
-   - Pahami kebutuhan tugas dan rujuk ke dokumen `docs/PRD-Resik.in.md`.
+   - Pahami kebutuhan tugas dan rujuk ke dokumen `docs/PRD-Resik.in.md` dan `docs/BUSINESS-RULES.md`.
    - Telusuri file dan komponen yang terlibat. Cek apakah ada script build terkait.
    - Periksa `package.json` untuk mengetahui perintah yang valid.
 2. **PLAN (Perencanaan Terukur):**
