@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'models/order_model.dart';
 import 'models/service_model.dart';
 import 'models/user_model.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'screens/booking_screen.dart';
+import 'screens/order_tracking_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -58,6 +60,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<ServiceModel>> _servicesFuture;
+  late Future<List<OrderModel>> _ordersFuture;
   final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
   int _selectedCategoryIndex = 0;
   int _currentBottomNavIndex = 0;
@@ -74,11 +77,19 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadServices();
+    _loadOrders();
+  }
+
+  void _loadOrders() {
+    setState(() {
+      _ordersFuture = ApiService.fetchOrders();
+    });
   }
 
   void _loadServices() {
     setState(() {
       _servicesFuture = ApiService.asyncFetchServices();
+      _ordersFuture = ApiService.fetchOrders();
     });
   }
 
@@ -431,7 +442,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
+      body: _currentBottomNavIndex == 0
+          ? SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -488,6 +500,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             const SizedBox(height: 16),
+
+            // Kartu Pelacakan Pesanan Aktif (Jika Ada Pesanan Sedang Berlangsung)
+            _buildActiveOrderBanner(),
 
             // Banner "Tanya Resik AI" / Solusi Noda Instan (Sesuai Stitch Screen 1)
             Padding(
@@ -892,7 +907,12 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 32),
           ],
         ),
-      ),
+      )
+          : (_currentBottomNavIndex == 1
+              ? _buildOrdersTab()
+              : (_currentBottomNavIndex == 2
+                  ? _buildAITab()
+                  : _buildAccountTab())),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLowest,
@@ -937,6 +957,731 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActiveOrderBanner() {
+    return FutureBuilder<List<OrderModel>>(
+      future: _ordersFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+
+        final activeOrders = snapshot.data!.where((o) =>
+          o.statusPekerjaan != 'Selesai' && o.statusPekerjaan != 'Dibatalkan'
+        ).toList();
+
+        if (activeOrders.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final activeOrder = activeOrders.first;
+        final currentStatus = activeOrder.statusPekerjaan;
+
+        Color badgeColor;
+        Color badgeTextColor;
+        IconData badgeIcon;
+
+        switch (currentStatus) {
+          case 'Sedang Dikerjakan':
+            badgeColor = const Color(0xFF6FFBBE).withValues(alpha: 0.25);
+            badgeTextColor = const Color(0xFF005236);
+            badgeIcon = Icons.timelapse_rounded;
+            break;
+          case 'Menuju Lokasi':
+          case 'Tiba di Lokasi':
+            badgeColor = const Color(0xFF006194).withValues(alpha: 0.12);
+            badgeTextColor = const Color(0xFF006194);
+            badgeIcon = Icons.directions_run_rounded;
+            break;
+          case 'Petugas Ditugaskan':
+            badgeColor = const Color(0xFFE0F2FE);
+            badgeTextColor = const Color(0xFF0284C7);
+            badgeIcon = Icons.assignment_ind_rounded;
+            break;
+          case 'Dikonfirmasi':
+            badgeColor = const Color(0xFFDCFCE7);
+            badgeTextColor = const Color(0xFF15803D);
+            badgeIcon = Icons.check_circle_outline_rounded;
+            break;
+          default:
+            badgeColor = const Color(0xFFFEF3C7);
+            badgeTextColor = const Color(0xFFB45309);
+            badgeIcon = Icons.hourglass_top_rounded;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFBAE6FD)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OrderTrackingScreen(
+                        orderId: activeOrder.id,
+                        initialOrder: activeOrder,
+                      ),
+                    ),
+                  );
+                  _loadOrders();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF0284C7),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'PESANAN AKTIF',
+                                style: TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0284C7),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: badgeColor,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(badgeIcon, size: 12, color: badgeTextColor),
+                                const SizedBox(width: 4),
+                                Text(
+                                  currentStatus,
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: badgeTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        activeOrder.serviceName ?? 'Layanan Kebersihan',
+                        style: const TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today_rounded, size: 13, color: AppColors.onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${activeOrder.tanggalLayanan} • ${activeOrder.startTime} WIB',
+                            style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                          ),
+                          if (activeOrder.cleaner != null) ...[
+                            const SizedBox(width: 8),
+                            const Text('•', style: TextStyle(color: AppColors.onSurfaceVariant)),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.person_rounded, size: 13, color: Color(0xFF0284C7)),
+                            const SizedBox(width: 3),
+                            Text(
+                              activeOrder.cleaner!.nama,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            currencyFormatter.format(activeOrder.totalBiaya),
+                            style: const TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Lacak Status',
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOrdersTab() {
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadOrders();
+      },
+      child: FutureBuilder<List<OrderModel>>(
+        future: _ordersFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+
+          final orders = snapshot.data ?? [];
+          if (orders.isEmpty) {
+            return ListView(
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryLight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 36),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Belum Ada Pesanan',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Pesan layanan kebersihan Anda sekarang\ndengan mutu terjamin dan petugas profesional.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 13,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _currentBottomNavIndex = 0;
+                          });
+                        },
+                        icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+                        label: const Text('Pesan Layanan Sekarang'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: orders.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 14),
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              return _buildOrderCard(order);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOrderCard(OrderModel order) {
+    Color badgeColor;
+    Color badgeTextColor;
+    IconData badgeIcon;
+
+    switch (order.statusPekerjaan) {
+      case 'Sedang Dikerjakan':
+        badgeColor = const Color(0xFF6FFBBE).withValues(alpha: 0.25);
+        badgeTextColor = const Color(0xFF005236);
+        badgeIcon = Icons.timelapse_rounded;
+        break;
+      case 'Menuju Lokasi':
+      case 'Tiba di Lokasi':
+        badgeColor = const Color(0xFF006194).withValues(alpha: 0.12);
+        badgeTextColor = const Color(0xFF006194);
+        badgeIcon = Icons.directions_run_rounded;
+        break;
+      case 'Petugas Ditugaskan':
+        badgeColor = const Color(0xFFE0F2FE);
+        badgeTextColor = const Color(0xFF0284C7);
+        badgeIcon = Icons.assignment_ind_rounded;
+        break;
+      case 'Dikonfirmasi':
+        badgeColor = const Color(0xFFDCFCE7);
+        badgeTextColor = const Color(0xFF15803D);
+        badgeIcon = Icons.check_circle_outline_rounded;
+        break;
+      case 'Selesai':
+        badgeColor = const Color(0xFFD1FAE5);
+        badgeTextColor = const Color(0xFF047857);
+        badgeIcon = Icons.task_alt_rounded;
+        break;
+      case 'Dibatalkan':
+        badgeColor = const Color(0xFFFFDAD6);
+        badgeTextColor = const Color(0xFF93000A);
+        badgeIcon = Icons.cancel_outlined;
+        break;
+      default:
+        badgeColor = const Color(0xFFFEF3C7);
+        badgeTextColor = const Color(0xFFB45309);
+        badgeIcon = Icons.hourglass_top_rounded;
+    }
+
+    final isTerminal = order.statusPekerjaan == 'Selesai' || order.statusPekerjaan == 'Dibatalkan';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.outline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderTrackingScreen(
+                  orderId: order.id,
+                  initialOrder: order,
+                ),
+              ),
+            );
+            _loadOrders();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        order.orderCode.isNotEmpty ? order.orderCode : '#ORD-${order.id.length >= 6 ? order.id.substring(0, 6) : order.id}',
+                        style: const TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(badgeIcon, size: 12, color: badgeTextColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            order.statusPekerjaan,
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: badgeTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  order.serviceName ?? 'Layanan Kebersihan',
+                  style: const TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${order.tanggalLayanan} • ${order.startTime} WIB',
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 12,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                    Text(
+                      order.cleaner != null
+                          ? 'Petugas: ${order.cleaner!.nama}'
+                          : 'Petugas: Belum ditentukan',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 12,
+                        fontWeight: order.cleaner != null ? FontWeight.w600 : FontWeight.w400,
+                        color: order.cleaner != null ? const Color(0xFF0284C7) : AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Total Biaya',
+                          style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                        ),
+                        Text(
+                          currencyFormatter.format(order.totalBiaya),
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => OrderTrackingScreen(
+                              orderId: order.id,
+                              initialOrder: order,
+                            ),
+                          ),
+                        );
+                        _loadOrders();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isTerminal ? AppColors.surfaceContainerHigh : AppColors.primary,
+                        foregroundColor: isTerminal ? AppColors.onSurface : Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isTerminal ? 'Rincian' : 'Lacak Status',
+                            style: const TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            isTerminal ? Icons.chevron_right_rounded : Icons.arrow_forward_rounded,
+                            size: 15,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAITab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: const BoxDecoration(
+                color: AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.auto_awesome_rounded, color: AppColors.primary, size: 40),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Resik AI Smart Consultation',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Fitur konsultasi kebutuhan pembersihan dan diagnosis noda dengan AI dijadwalkan hadir pada Tahap 2 (Phase 2 Roadmap).',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 13,
+                color: AppColors.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _currentBottomNavIndex = 0;
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Kembali ke Beranda'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountTab() {
+    return ValueListenableBuilder<UserModel?>(
+      valueListenable: AuthService.currentUserNotifier,
+      builder: (context, user, _) {
+        if (user == null) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.account_circle_outlined, size: 64, color: AppColors.onSurfaceVariant),
+                const SizedBox(height: 16),
+                const Text('Anda Belum Masuk', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const WelcomeScreen()));
+                  },
+                  child: const Text('Masuk / Daftar'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Center(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 36,
+                    backgroundColor: AppColors.primary,
+                    backgroundImage: user.fotoUrl != null ? NetworkImage(user.fotoUrl!) : null,
+                    child: user.fotoUrl == null
+                        ? Text(
+                            user.nama.isNotEmpty ? user.nama[0].toUpperCase() : 'U',
+                            style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    user.nama,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.onSurface),
+                  ),
+                  Text(
+                    user.email,
+                    style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      user.roleLabel,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.outline),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.info_outline_rounded, color: AppColors.primary),
+                    title: const Text('Versi Aplikasi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    trailing: const Text('1.0.0 (V1)', style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13)),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.science_outlined, color: AppColors.tertiary),
+                    title: const Text('Simulasi Operasional', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.emeraldLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('Aktif (Testing)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.emeraldDark)),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await AuthService().logout();
+                },
+                icon: const Icon(Icons.logout_rounded, color: AppColors.error, size: 18),
+                label: const Text('Keluar (Logout)', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

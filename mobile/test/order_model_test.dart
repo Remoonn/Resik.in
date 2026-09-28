@@ -69,5 +69,47 @@ void main() {
       expect(payload['luas_area'], 'Tipe 36');
       expect(payload.containsKey('status_pembayaran'), false, reason: 'Klien dilarang menyertakan status_pembayaran');
     });
+
+    test('3. fromJson harus mem-parsing cleaner tersemat dan data lifecycle pembatalan', () {
+      final json = {
+        'id': 'ord-456',
+        'order_code': 'RSK-20260930-002',
+        'service_id': 'srv-001',
+        'tanggal_layanan': '2026-09-30',
+        'start_time': '13:00',
+        'end_time': '15:00',
+        'duration': 2,
+        'alamat_lengkap': 'Kost Putri Melati No 12, Sleman',
+        'patokan_lokasi': 'Pagar hitam samping minimarket',
+        'luas_area': 'Kos Standar',
+        'harga_saat_booking': 100000.0,
+        'total_biaya': 100000.0,
+        'status_pembayaran': 'Sudah Bayar',
+        'status_pekerjaan': 'Sedang Dikerjakan',
+        'started_at': '2026-09-30T13:05:00.000Z',
+        'cleaner_id': 'cleaner-01',
+        'cleaner': {
+          'id': 'cleaner-01',
+          'nama': 'Siti Rahmawati',
+          'nomor_telepon': '081234567890',
+          'rating_rata_rata': 4.9,
+          'total_pekerjaan_selesai': 42,
+          'status_ketersediaan': 'Bertugas'
+        },
+        'status_logs': [
+          {'status': 'Menunggu Konfirmasi', 'timestamp': '2026-09-30T08:00:00Z'},
+          {'status': 'Sedang Dikerjakan', 'timestamp': '2026-09-30T13:05:00Z'}
+        ]
+      };
+
+      final order = OrderModel.fromJson(json);
+
+      expect(order.cleanerId, 'cleaner-01');
+      expect(order.cleaner, isNotNull);
+      expect(order.cleaner!.nama, 'Siti Rahmawati');
+      expect(order.cleaner!.ratingRataRata, 4.9);
+      expect(order.startedAt, '2026-09-30T13:05:00.000Z');
+      expect(order.statusLogs?.length, 2);
+    });
   });
 }

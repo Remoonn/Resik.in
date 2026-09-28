@@ -5,6 +5,7 @@ import '../models/service_model.dart';
 import '../models/cleaner_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'order_tracking_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   final OrderModel order;
@@ -135,8 +136,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               onPressed: () {
                 Navigator.of(ctx).pop();
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => OrderTrackingScreen(
+                      orderId: _currentOrder.id,
+                      initialOrder: _currentOrder,
+                    ),
+                  ),
+                );
               },
-              child: const Text('Selesai', style: TextStyle(fontWeight: FontWeight.w700)),
+              child: const Text('Lacak Pesanan Sekarang', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -382,26 +391,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
             const SizedBox(height: 28),
 
-            // Tombol Simulasi Pembayaran (Pill Button)
+            // Tombol Simulasi Pembayaran / Lacak Status (Pill Button)
             SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
                 key: const Key('btn_simulasi_bayar'),
-                icon: Icon(isPaid ? Icons.check_circle_rounded : Icons.account_balance_wallet_rounded, size: 20),
+                icon: Icon(isPaid ? Icons.timeline_rounded : Icons.account_balance_wallet_rounded, size: 20),
                 label: _isProcessing
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
-                        isPaid ? 'Pembayaran Telah Lunas' : 'Bayar Sekarang (Simulasi)',
+                        isPaid ? 'Lacak Status Pesanan' : 'Bayar Sekarang (Simulasi)',
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isPaid ? AppColors.emerald : AppColors.primary,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                   elevation: 0,
                 ),
-                onPressed: (isPaid || _isProcessing) ? null : _handlePayment,
+                onPressed: _isProcessing
+                    ? null
+                    : (isPaid
+                        ? () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => OrderTrackingScreen(
+                                  orderId: _currentOrder.id,
+                                  initialOrder: _currentOrder,
+                                ),
+                              ),
+                            );
+                          }
+                        : _handlePayment),
               ),
             ),
           ],

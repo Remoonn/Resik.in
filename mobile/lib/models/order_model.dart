@@ -1,9 +1,13 @@
+import 'cleaner_model.dart';
+
 class OrderModel {
   final String id;
   final String orderCode;
   final String serviceId;
   final String? serviceName;
   final String? serviceCategory;
+  final String? cleanerId;
+  final CleanerModel? cleaner;
   final String tanggalLayanan;
   final String startTime;
   final String? endTime;
@@ -18,6 +22,11 @@ class OrderModel {
   final String? paymentTimestamp;
   final String statusPekerjaan;
   final String? preferensiPetugasId;
+  final String? startedAt;
+  final String? cancellationReason;
+  final String? cancelledBy;
+  final String? cancelledAt;
+  final List<dynamic>? statusLogs;
   final String? createdAt;
 
   OrderModel({
@@ -26,6 +35,8 @@ class OrderModel {
     required this.serviceId,
     this.serviceName,
     this.serviceCategory,
+    this.cleanerId,
+    this.cleaner,
     required this.tanggalLayanan,
     required this.startTime,
     this.endTime,
@@ -40,6 +51,11 @@ class OrderModel {
     this.paymentTimestamp,
     required this.statusPekerjaan,
     this.preferensiPetugasId,
+    this.startedAt,
+    this.cancellationReason,
+    this.cancelledBy,
+    this.cancelledAt,
+    this.statusLogs,
     this.createdAt,
   });
 
@@ -51,6 +67,10 @@ class OrderModel {
       sName = json['service']['nama_layanan'];
       sCategory = json['service']['kategori'];
     }
+    CleanerModel? cleanerObj;
+    if (json['cleaner'] is Map<String, dynamic>) {
+      cleanerObj = CleanerModel.fromJson(json['cleaner'] as Map<String, dynamic>);
+    }
 
     return OrderModel(
       id: json['id']?.toString() ?? '',
@@ -58,6 +78,8 @@ class OrderModel {
       serviceId: json['service_id']?.toString() ?? '',
       serviceName: sName ?? json['nama_layanan']?.toString(),
       serviceCategory: sCategory ?? json['kategori']?.toString(),
+      cleanerId: json['cleaner_id']?.toString(),
+      cleaner: cleanerObj,
       tanggalLayanan: json['tanggal_layanan']?.toString() ?? '',
       startTime: json['start_time']?.toString() ?? '',
       endTime: json['end_time']?.toString(),
@@ -78,6 +100,11 @@ class OrderModel {
       paymentTimestamp: json['payment_timestamp']?.toString(),
       statusPekerjaan: json['status_pekerjaan']?.toString() ?? 'Menunggu Konfirmasi',
       preferensiPetugasId: json['preferensi_petugas_id']?.toString(),
+      startedAt: json['started_at']?.toString(),
+      cancellationReason: json['cancellation_reason']?.toString(),
+      cancelledBy: json['cancelled_by']?.toString(),
+      cancelledAt: json['cancelled_at']?.toString(),
+      statusLogs: json['status_logs'] as List<dynamic>?,
       createdAt: json['created_at']?.toString(),
     );
   }

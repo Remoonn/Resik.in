@@ -153,5 +153,136 @@ class ApiService {
       return <CleanerRecommendation>[];
     }
   }
+
+  /// Mengambil daftar pesanan pelanggan (GET /api/orders)
+  static Future<List<OrderModel>> fetchOrders({String? status}) async {
+    try {
+      final uri = Uri.parse('${ApiConstants.baseUrl}/orders').replace(
+        queryParameters: status != null ? {'status': status} : null,
+      );
+      final response = await _client.get(uri).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['success'] == true && body['data'] is List) {
+          final List list = body['data'];
+          return list.map((item) => OrderModel.fromJson(item)).toList();
+        }
+      }
+      return <OrderModel>[];
+    } catch (e) {
+      return <OrderModel>[];
+    }
+  }
+
+  /// Memperbarui status pesanan sekuensial (PATCH /api/orders/:id/status)
+  static Future<Map<String, dynamic>> updateOrderStatus(
+    String orderId,
+    String statusBaru, {
+    String role = 'cleaner',
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/orders/$orderId/status');
+      final response = await _client.patch(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'status_baru': statusBaru,
+          'role': role,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal memperbarui status pesanan: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Menugaskan petugas ke pesanan (POST /api/orders/:id/assign)
+  static Future<Map<String, dynamic>> assignCleaner(
+    String orderId,
+    String cleanerId, {
+    String role = 'admin',
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/orders/$orderId/assign');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'cleaner_id': cleanerId,
+          'role': role,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal menugaskan petugas: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Mengganti petugas pesanan (POST /api/orders/:id/reassign)
+  static Future<Map<String, dynamic>> reassignCleaner(
+    String orderId,
+    String newCleanerId,
+    String alasan, {
+    String role = 'admin',
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/orders/$orderId/reassign');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'new_cleaner_id': newCleanerId,
+          'alasan': alasan,
+          'role': role,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal mengalihkan petugas: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Membatalkan pesanan (POST /api/orders/:id/cancel)
+  static Future<Map<String, dynamic>> cancelOrder(
+    String orderId,
+    String reason, {
+    String role = 'customer',
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/orders/$orderId/cancel');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'cancellation_reason': reason,
+          'role': role,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal membatalkan pesanan: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
 }
 

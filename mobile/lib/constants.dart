@@ -26,3 +26,11 @@ class SupabaseConstants {
   static const String authRedirectHost = 'login-callback';
   static const String authRedirectUrl = '$authRedirectScheme://$authRedirectHost';
 }
+
+class AppConfig {
+  /// Flag konfigurasi untuk mengaktifkan/menonaktifkan sheet Simulasi Operasional di HP.
+  /// Saat diset true, pengguna dapat mensimulasikan aksi Admin & Cleaner langsung dari layar pelacakan.
+  /// Saat diset false, sheet simulasi disembunyikan dan sistem mematuhi otorisasi peran riil.
+  static const bool kEnableOperationalSimulation = true;
+}
+
