@@ -13,6 +13,22 @@ function calculateEndTime(startTime, durationHours) {
   return `${formattedHours}:${formattedMinutes}`;
 }
 
+// Konversi format HH:mm ke total menit dari 00:00
+function timeToMinutes(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Pemeriksaan bentrok jadwal dua rentang waktu dengan buffer operasional (default 30 menit)
+function isScheduleConflict(startA, endA, startB, endB, bufferMinutes = 30) {
+  const aStart = timeToMinutes(startA);
+  const aEnd = timeToMinutes(endA) + bufferMinutes;
+  const bStart = timeToMinutes(startB);
+  const bEnd = timeToMinutes(endB) + bufferMinutes;
+
+  return Math.max(aStart, bStart) < Math.min(aEnd, bEnd);
+}
+
 // Helper untuk generate kode pesanan unik: RSK-YYYYMMDD-XXX
 function generateOrderCode(tanggalLayanan) {
   const cleanDate = (tanggalLayanan || new Date().toISOString().split('T')[0]).replace(/-/g, '');
@@ -57,6 +73,8 @@ router.get('/:id', async (req, res) => {
 
   const { data: services } = await getServices(true);
   const service = (services || []).find(s => s.id === order.service_id);
+  const cleaner = order.cleaner_id ? inMemoryStore.cleaners.find(c => c.id === order.cleaner_id) : null;
+  const logs = inMemoryStore.status_logs.filter(l => l.order_id === order.id);
 
   return res.status(200).json({
     success: true,
@@ -68,7 +86,16 @@ router.get('/:id', async (req, res) => {
         nama_layanan: service.nama_layanan,
         kategori: service.kategori,
         durasi_estimasi: service.durasi_estimasi
-      } : null
+      } : null,
+      cleaner: cleaner ? {
+        id: cleaner.id,
+        nama: cleaner.nama,
+        nomor_kontak: cleaner.nomor_kontak,
+        foto_url: cleaner.foto_url,
+        rating_rata_rata: cleaner.rating_rata_rata,
+        total_pekerjaan: cleaner.total_pekerjaan
+      } : null,
+      status_logs: logs
     }
   });
 });
@@ -285,6 +312,321 @@ router.post('/:id/pay', (req, res) => {
       id: order.id,
       status_pembayaran: order.status_pembayaran,
       payment_timestamp: order.payment_timestamp
+    }
+  });
+});
+
+// PATCH /api/orders/:id/status — Transisi status sekuensial mutlak
+router.patch('/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status_baru, role } = req.body;
+  const order = inMemoryStore.orders.find(o => o.id === id);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: `Pesanan dengan ID ${id} tidak ditemukan`,
+      error: 'ORDER_NOT_FOUND'
+    });
+  }
+
+  // Matriks alur sekuensial mutlak (No Status Skipping)
+  const validTransitions = {
+    'Menunggu Konfirmasi': ['Dikonfirmasi'],
+    'Dikonfirmasi': ['Petugas Ditugaskan'],
+    'Petugas Ditugaskan': ['Menuju Lokasi'],
+    'Menuju Lokasi': ['Tiba di Lokasi'],
+    'Tiba di Lokasi': ['Sedang Dikerjakan'],
+    'Sedang Dikerjakan': [] // Transisi ke Selesai WAJIB lewat Quality Report (Sprint 4)
+  };
+
+  const allowedNext = validTransitions[order.status_pekerjaan] || [];
+  if (!allowedNext.includes(status_baru)) {
+    return res.status(400).json({
+      success: false,
+      message: `Transisi status tidak valid dari '${order.status_pekerjaan}' ke '${status_baru}'`,
+      error: 'INVALID_STATUS_TRANSITION'
+    });
+  }
+
+  // Validasi prasyarat pembayaran untuk Dikonfirmasi
+  if (status_baru === 'Dikonfirmasi') {
+    if (order.status_pembayaran !== 'Sudah Bayar') {
+      return res.status(400).json({
+        success: false,
+        message: 'Pesanan belum dibayar. Konfirmasi hanya diizinkan untuk pesanan yang telah lunas.',
+        error: 'ORDER_NOT_PAID_YET'
+      });
+    }
+  }
+
+  const prevStatus = order.status_pekerjaan;
+  order.status_pekerjaan = status_baru;
+  if (status_baru === 'Sedang Dikerjakan') {
+    order.started_at = new Date().toISOString();
+  }
+
+  // Catat ke status_logs
+  inMemoryStore.status_logs.push({
+    id: crypto.randomUUID(),
+    order_id: order.id,
+    status_sebelumnya: prevStatus,
+    status_baru: status_baru,
+    diubah_oleh: role || 'admin',
+    catatan: `Status pekerjaan diperbarui menjadi ${status_baru}`,
+    created_at: new Date().toISOString()
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Status pekerjaan berhasil diperbarui',
+    data: {
+      id: order.id,
+      status_pekerjaan: order.status_pekerjaan,
+      started_at: order.started_at || null
+    }
+  });
+});
+
+// POST /api/orders/:id/assign — Penugasan petugas hibrida dengan anti-double booking
+router.post('/:id/assign', (req, res) => {
+  const { id } = req.params;
+  const { cleaner_id, role } = req.body;
+  const order = inMemoryStore.orders.find(o => o.id === id);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: `Pesanan dengan ID ${id} tidak ditemukan`,
+      error: 'ORDER_NOT_FOUND'
+    });
+  }
+
+  // Prasyarat Status: Wajib Dikonfirmasi
+  if (order.status_pekerjaan !== 'Dikonfirmasi') {
+    return res.status(400).json({
+      success: false,
+      message: 'Penugasan petugas hanya dapat dilakukan pada pesanan berstatus Dikonfirmasi',
+      error: 'ORDER_MUST_BE_CONFIRMED_BEFORE_ASSIGNMENT'
+    });
+  }
+
+  if (!cleaner_id) {
+    return res.status(400).json({
+      success: false,
+      message: 'cleaner_id wajib disertakan',
+      error: 'MISSING_CLEANER_ID'
+    });
+  }
+
+  const cleaner = inMemoryStore.cleaners.find(c => c.id === cleaner_id);
+  if (!cleaner || cleaner.status_operasional !== 'Aktif') {
+    return res.status(400).json({
+      success: false,
+      message: 'Petugas kebersihan tidak ditemukan atau sedang tidak berstatus Aktif',
+      error: 'CLEANER_NOT_AVAILABLE'
+    });
+  }
+
+  // Pemeriksaan Bentrok Jadwal (+ Buffer 30 Menit)
+  const existingCleanerOrders = inMemoryStore.orders.filter(o =>
+    o.cleaner_id === cleaner_id &&
+    o.tanggal_layanan === order.tanggal_layanan &&
+    o.id !== order.id &&
+    o.status_pekerjaan !== 'Dibatalkan' &&
+    o.status_pekerjaan !== 'Selesai'
+  );
+
+  const hasConflict = existingCleanerOrders.some(existing =>
+    isScheduleConflict(order.start_time, order.end_time, existing.start_time, existing.end_time, 30)
+  );
+
+  if (hasConflict) {
+    return res.status(409).json({
+      success: false,
+      message: 'Jadwal petugas bentrok dengan pesanan lain pada interval waktu yang sama (memperhitungkan buffer 30 menit)',
+      error: 'SCHEDULE_CONFLICT_DETECTED'
+    });
+  }
+
+  const prevStatus = order.status_pekerjaan;
+  order.cleaner_id = cleaner_id;
+  order.status_pekerjaan = 'Petugas Ditugaskan';
+
+  inMemoryStore.status_logs.push({
+    id: crypto.randomUUID(),
+    order_id: order.id,
+    status_sebelumnya: prevStatus,
+    status_baru: 'Petugas Ditugaskan',
+    diubah_oleh: role || 'admin',
+    catatan: `Petugas ${cleaner.nama} (${cleaner.id}) berhasil ditugaskan`,
+    created_at: new Date().toISOString()
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Petugas berhasil ditugaskan ke pesanan',
+    data: {
+      id: order.id,
+      cleaner_id: order.cleaner_id,
+      status_pekerjaan: order.status_pekerjaan
+    }
+  });
+});
+
+// POST /api/orders/:id/reassign — Penggantian petugas ber-audit
+router.post('/:id/reassign', (req, res) => {
+  const { id } = req.params;
+  const { new_cleaner_id, alasan, role } = req.body;
+  const order = inMemoryStore.orders.find(o => o.id === id);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: `Pesanan dengan ID ${id} tidak ditemukan`,
+      error: 'ORDER_NOT_FOUND'
+    });
+  }
+
+  if (order.status_pekerjaan !== 'Petugas Ditugaskan') {
+    return res.status(400).json({
+      success: false,
+      message: 'Penggantian petugas hanya diizinkan saat status pesanan masih Petugas Ditugaskan',
+      error: 'CANNOT_REASSIGN_AFTER_DISPATCH'
+    });
+  }
+
+  if (!alasan || alasan.trim().length < 5) {
+    return res.status(400).json({
+      success: false,
+      message: 'Alasan penggantian petugas wajib diisi minimal 5 karakter',
+      error: 'INVALID_REASSIGN_REASON'
+    });
+  }
+
+  const newCleaner = inMemoryStore.cleaners.find(c => c.id === new_cleaner_id);
+  if (!newCleaner || newCleaner.status_operasional !== 'Aktif') {
+    return res.status(400).json({
+      success: false,
+      message: 'Petugas pengganti tidak ditemukan atau sedang tidak berstatus Aktif',
+      error: 'CLEANER_NOT_AVAILABLE'
+    });
+  }
+
+  // Cek bentrok jadwal petugas baru
+  const existingOrders = inMemoryStore.orders.filter(o =>
+    o.cleaner_id === new_cleaner_id &&
+    o.tanggal_layanan === order.tanggal_layanan &&
+    o.id !== order.id &&
+    o.status_pekerjaan !== 'Dibatalkan' &&
+    o.status_pekerjaan !== 'Selesai'
+  );
+
+  const hasConflict = existingOrders.some(existing =>
+    isScheduleConflict(order.start_time, order.end_time, existing.start_time, existing.end_time, 30)
+  );
+
+  if (hasConflict) {
+    return res.status(409).json({
+      success: false,
+      message: 'Petugas pengganti memiliki jadwal bentrok pada tanggal dan waktu tersebut',
+      error: 'SCHEDULE_CONFLICT_DETECTED'
+    });
+  }
+
+  const oldCleanerId = order.cleaner_id;
+  order.cleaner_id = new_cleaner_id;
+
+  inMemoryStore.status_logs.push({
+    id: crypto.randomUUID(),
+    order_id: order.id,
+    status_sebelumnya: 'Petugas Ditugaskan',
+    status_baru: 'Petugas Ditugaskan',
+    diubah_oleh: role || 'admin',
+    catatan: `REASSIGN_CLEANER: dari ${oldCleanerId} ke ${new_cleaner_id} - Alasan: ${alasan.trim()}`,
+    created_at: new Date().toISOString()
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Petugas berhasil dialihkan',
+    data: {
+      id: order.id,
+      cleaner_id: order.cleaner_id,
+      status_pekerjaan: order.status_pekerjaan
+    }
+  });
+});
+
+// POST /api/orders/:id/cancel — Pembatalan pesanan terstruktur berbasis peran
+router.post('/:id/cancel', (req, res) => {
+  const { id } = req.params;
+  const { cancellation_reason, role } = req.body;
+  const order = inMemoryStore.orders.find(o => o.id === id);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: `Pesanan dengan ID ${id} tidak ditemukan`,
+      error: 'ORDER_NOT_FOUND'
+    });
+  }
+
+  if (order.status_pekerjaan === 'Dibatalkan' || order.status_pekerjaan === 'Selesai') {
+    return res.status(400).json({
+      success: false,
+      message: `Pesanan sudah berada pada status akhir '${order.status_pekerjaan}' dan tidak dapat dibatalkan`,
+      error: 'ORDER_ALREADY_TERMINATED'
+    });
+  }
+
+  if (!cancellation_reason || cancellation_reason.trim().length < 5) {
+    return res.status(400).json({
+      success: false,
+      message: 'Alasan pembatalan wajib diisi minimal 5 karakter',
+      error: 'INVALID_CANCELLATION_REASON'
+    });
+  }
+
+  const actorRole = role || 'customer';
+
+  // Validasi hak pembatalan pelanggan
+  if (actorRole === 'customer') {
+    const customerAllowedStatuses = ['Menunggu Konfirmasi', 'Dikonfirmasi', 'Petugas Ditugaskan'];
+    if (!customerAllowedStatuses.includes(order.status_pekerjaan)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Pelanggan tidak dapat membatalkan pesanan setelah petugas memasuki tahap penugasan lapangan (Menuju Lokasi ke atas)',
+        error: 'CUSTOMER_CANNOT_CANCEL_DISPATCHED_ORDER'
+      });
+    }
+  }
+
+  const prevStatus = order.status_pekerjaan;
+  const now = new Date().toISOString();
+  order.status_pekerjaan = 'Dibatalkan';
+  order.cancellation_reason = cancellation_reason.trim();
+  order.cancelled_by = actorRole;
+  order.cancelled_at = now;
+
+  inMemoryStore.status_logs.push({
+    id: crypto.randomUUID(),
+    order_id: order.id,
+    status_sebelumnya: prevStatus,
+    status_baru: 'Dibatalkan',
+    diubah_oleh: actorRole,
+    catatan: `Pesanan dibatalkan oleh ${actorRole}. Alasan: ${order.cancellation_reason}`,
+    created_at: now
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Pesanan berhasil dibatalkan',
+    data: {
+      id: order.id,
+      status_pekerjaan: order.status_pekerjaan,
+      cancelled_by: order.cancelled_by,
+      cancelled_at: order.cancelled_at
     }
   });
 });
