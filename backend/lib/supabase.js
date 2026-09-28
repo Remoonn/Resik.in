@@ -179,6 +179,36 @@ export const inMemoryStore = {
       ulasan: 'Ibu Siti sangat teliti dan sopan. Ruang konsultasi dan meeting kantor kami selalu bersih berkilau.',
       service_nama: 'Pembersihan Kantor'
     }
+  ],
+  users: [
+    {
+      id: 'usr-customer-001',
+      nama: 'Budi Santoso',
+      email: 'pelanggan@resik.in',
+      password: 'password123',
+      nomor_wa: '081234567890',
+      role: 'customer',
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'usr-cleaner-001',
+      nama: 'Candra Pratama',
+      email: 'petugas@resik.in',
+      password: 'password123',
+      nomor_wa: '081234567801',
+      role: 'cleaner',
+      cleaner_id: 'cln-001',
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'usr-admin-001',
+      nama: 'Admin Resik',
+      email: 'admin@resik.in',
+      password: 'password123',
+      nomor_wa: '081999888777',
+      role: 'admin',
+      created_at: new Date().toISOString()
+    }
   ]
 };
 
