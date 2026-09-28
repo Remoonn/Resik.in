@@ -8,7 +8,9 @@ import 'screens/booking_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AuthService.initializeSupabase();
   runApp(const ResikInApp());
 }
 
@@ -21,10 +23,31 @@ class ResikInApp extends StatelessWidget {
       title: 'Resik.in',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const HomeScreen(),
+      home: const AuthGate(),
+      routes: {
+        '/welcome': (_) => const WelcomeScreen(),
+      },
     );
   }
 }
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<UserModel?>(
+      valueListenable: AuthService.currentUserNotifier,
+      builder: (context, user, _) {
+        if (user != null) {
+          return const HomeScreen();
+        }
+        return const WelcomeScreen();
+      },
+    );
+  }
+}
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -93,10 +116,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: const Color(0xFF0284C7),
-                    child: Text(
-                      user.nama.isNotEmpty ? user.nama[0].toUpperCase() : 'U',
-                      style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
+                    backgroundImage: user.fotoUrl != null ? NetworkImage(user.fotoUrl!) : null,
+                    child: user.fotoUrl == null
+                        ? Text(
+                            user.nama.isNotEmpty ? user.nama[0].toUpperCase() : 'U',
+                            style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -148,15 +174,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   key: const Key('session_logout_button'),
-                  onPressed: () {
-                    AuthService().logout();
+                  onPressed: () async {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Anda telah berhasil keluar.'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    await AuthService().logout();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Anda telah berhasil keluar.'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 18),
                   label: const Text(
@@ -174,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
             ],
           ),
         ),
@@ -368,15 +397,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             CircleAvatar(
                               radius: 12,
                               backgroundColor: AppColors.primary,
-                              child: Text(
-                                user.nama.isNotEmpty ? user.nama[0].toUpperCase() : 'U',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                              backgroundImage: user.fotoUrl != null ? NetworkImage(user.fotoUrl!) : null,
+                              child: user.fotoUrl == null
+                                  ? Text(
+                                      user.nama.isNotEmpty ? user.nama[0].toUpperCase() : 'U',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    )
+                                  : null,
                             ),
+
                             const SizedBox(width: 6),
                             Text(
                               user.nama.split(' ').first,

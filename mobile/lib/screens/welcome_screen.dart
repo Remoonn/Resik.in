@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/google_icon_painter.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
@@ -213,21 +215,56 @@ class WelcomeScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
 
-                        // Guest / Browse Option
-                        TextButton(
-                          key: const Key('welcome_guest_button'),
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            'Lanjutkan sebagai Tamu',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0284C7),
+                        // Sign in with Google (Fast OAuth)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton(
+                            key: const Key('welcome_google_button'),
+                            onPressed: () async {
+                              try {
+                                await AuthService().signInWithGoogle();
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Google Sign In: ${e.toString()}'),
+                                      backgroundColor: AppColors.error,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.slate900,
+                              side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CustomPaint(painter: GoogleIconPainter()),
+                                ),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Sign in with Google',
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -236,6 +273,7 @@ class WelcomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
+
           ],
         ),
       ),

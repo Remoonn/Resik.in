@@ -6,6 +6,7 @@ class UserModel {
   final String nomorWa;
   final String? cleanerId;
   final String? token;
+  final String? fotoUrl;
 
   const UserModel({
     required this.id,
@@ -15,6 +16,7 @@ class UserModel {
     this.nomorWa = '-',
     this.cleanerId,
     this.token,
+    this.fotoUrl,
   });
 
   bool get isCustomer => role.toLowerCase() == 'customer';
@@ -42,6 +44,7 @@ class UserModel {
       nomorWa: json['nomor_wa'] as String? ?? '-',
       cleanerId: json['cleaner_id'] as String?,
       token: json['token'] as String?,
+      fotoUrl: json['foto_url'] as String?,
     );
   }
 
@@ -54,6 +57,8 @@ class UserModel {
       'nomor_wa': nomorWa,
       if (cleanerId != null) 'cleaner_id': cleanerId,
       if (token != null) 'token': token,
+      if (fotoUrl != null) 'foto_url': fotoUrl,
     };
   }
+
 }

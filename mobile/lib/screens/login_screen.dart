@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/google_icon_painter.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'pelanggan@resik.in');
-  final _passwordController = TextEditingController(text: 'password123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -55,22 +56,30 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleQuickDemoLogin(String role) async {
+  Future<void> _handleGoogleSignIn() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final user = await AuthService().loginDemo(role);
+      await AuthService().signInWithGoogle();
       if (!mounted) return;
-      _onLoginSuccess(user);
+      if (AuthService().isAuthenticated) {
+        _onLoginSuccess(AuthService().currentUser!);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Gagal login via Google: ${e.toString().replaceAll('Exception: ', '')}';
+      });
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
+
 
   void _onLoginSuccess(UserModel user) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -371,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: Text(
-                        'Or Demo Role',
+                        'or continue with',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontSize: 12,
@@ -385,29 +394,39 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 18),
 
-                // Quick Demo Role Buttons
-                _buildDemoRoleButton(
-                  title: 'Masuk Cepat sebagai Pelanggan',
-                  subtitle: 'pelanggan@resik.in',
-                  icon: Icons.person_outline_rounded,
-                  color: const Color(0xFF0284C7),
-                  role: 'customer',
-                ),
-                const SizedBox(height: 10),
-                _buildDemoRoleButton(
-                  title: 'Masuk Cepat sebagai Petugas (Cleaner)',
-                  subtitle: 'petugas@resik.in',
-                  icon: Icons.cleaning_services_outlined,
-                  color: const Color(0xFF10B981),
-                  role: 'cleaner',
-                ),
-                const SizedBox(height: 10),
-                _buildDemoRoleButton(
-                  title: 'Masuk Cepat sebagai Administrator',
-                  subtitle: 'admin@resik.in',
-                  icon: Icons.admin_panel_settings_outlined,
-                  color: const Color(0xFFF59E0B),
-                  role: 'admin',
+                // Sign in with Google Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton(
+                    key: const Key('login_google_button'),
+                    onPressed: _isLoading ? null : _handleGoogleSignIn,
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.slate900,
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildGoogleIcon(),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Sign in with Google',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -464,62 +483,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildDemoRoleButton({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required String role,
-  }) {
-    return InkWell(
-      onTap: _isLoading ? null : () => _handleQuickDemoLogin(role),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 20, color: color),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.slate900,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 11,
-                      color: AppColors.slate500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.slate500),
-          ],
-        ),
-      ),
+  Widget _buildGoogleIcon() {
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: CustomPaint(painter: GoogleIconPainter()),
     );
   }
 }
+
+

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants.dart';
 import '../models/user_model.dart';
 
@@ -14,6 +15,87 @@ class AuthService {
 
   UserModel? get currentUser => currentUserNotifier.value;
   bool get isAuthenticated => currentUser != null;
+
+  static bool _isSupabaseInitialized = false;
+
+  /// Inisialisasi resmi Supabase SDK dan listener sesi
+  static Future<void> initializeSupabase() async {
+    if (_isSupabaseInitialized) return;
+
+    try {
+      await Supabase.initialize(
+        url: SupabaseConstants.supabaseUrl,
+        // ignore: deprecated_member_use
+        anonKey: SupabaseConstants.supabaseAnonKey,
+      );
+
+      _isSupabaseInitialized = true;
+
+      // Pantau perubahan sesi Supabase secara realtime
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        final session = data.session;
+        if (session != null) {
+          final supaUser = session.user;
+          final userModel = _mapSupabaseUserToModel(supaUser, session.accessToken);
+          currentUserNotifier.value = userModel;
+        } else {
+          // Jika sesi Supabase berakhir dan bukan user demo/lokal
+          if (currentUserNotifier.value?.token?.startsWith('sb-') ?? false) {
+            currentUserNotifier.value = null;
+          }
+        }
+      });
+
+      // Cek sesi yang sudah aktif saat aplikasi dibuka
+      final currentSession = Supabase.instance.client.auth.currentSession;
+      if (currentSession != null) {
+        currentUserNotifier.value = _mapSupabaseUserToModel(
+          currentSession.user,
+          currentSession.accessToken,
+        );
+      }
+    } catch (e) {
+      debugPrint('Supabase initialize error (ignored in test/offline): $e');
+    }
+  }
+
+  static UserModel _mapSupabaseUserToModel(User user, [String? token]) {
+    final meta = user.userMetadata ?? {};
+    final fullName = meta['full_name'] as String? ??
+        meta['name'] as String? ??
+        user.email?.split('@').first ??
+        'Pengguna';
+    final avatar = meta['avatar_url'] as String? ?? meta['picture'] as String?;
+    final role = meta['role'] as String? ?? 'customer';
+
+    return UserModel(
+      id: user.id,
+      nama: fullName,
+      email: user.email ?? '',
+      role: role,
+      token: token != null ? 'sb-$token' : 'sb-${user.id}',
+      fotoUrl: avatar,
+    );
+  }
+
+  /// Login resmi via Google OAuth melalui Supabase
+  Future<bool> signInWithGoogle() async {
+    try {
+      if (!_isSupabaseInitialized) {
+        await initializeSupabase();
+      }
+
+      final res = await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? null : SupabaseConstants.authRedirectUrl,
+      );
+
+      return res;
+    } catch (e) {
+      debugPrint('Error signInWithGoogle: $e');
+      rethrow;
+    }
+  }
 
   // Demo fallback accounts
   static final Map<String, UserModel> demoAccounts = {
@@ -148,7 +230,13 @@ class AuthService {
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
+    try {
+      if (_isSupabaseInitialized) {
+        await Supabase.instance.client.auth.signOut();
+      }
+    } catch (_) {}
     currentUserNotifier.value = null;
   }
 }
+
