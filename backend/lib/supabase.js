@@ -335,10 +335,13 @@ export async function getServices(all = false) {
 // 4. Persistence Helper untuk In-Memory Store (Menjaga data saat server di-restart)
 export function saveStateToDisk() {
   try {
+    const cleanOrders = inMemoryStore.orders.filter(o => !o.id.startsWith('ord-test-') && !o.id.startsWith('ord-qr-'));
+    const cleanLogs = inMemoryStore.status_logs.filter(l => !l.order_id.startsWith('ord-test-') && !l.order_id.startsWith('ord-qr-'));
+    const cleanReports = inMemoryStore.quality_reports.filter(r => !r.order_id.startsWith('ord-test-') && !r.order_id.startsWith('ord-qr-'));
     const dataToSave = {
-      orders: inMemoryStore.orders,
-      status_logs: inMemoryStore.status_logs,
-      quality_reports: inMemoryStore.quality_reports,
+      orders: cleanOrders,
+      status_logs: cleanLogs,
+      quality_reports: cleanReports,
       cleaners: inMemoryStore.cleaners
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
@@ -353,22 +356,16 @@ export function loadStateFromDisk() {
       const content = fs.readFileSync(STATE_FILE, 'utf8');
       const loaded = JSON.parse(content);
       if (Array.isArray(loaded.orders) && loaded.orders.length > 0) {
-        // Merge orders tanpa duplikasi
-        for (const order of loaded.orders) {
-          if (!inMemoryStore.orders.some(o => o.id === order.id)) {
-            inMemoryStore.orders.push(order);
-          }
-        }
+        inMemoryStore.orders = loaded.orders.filter(o => !o.id.startsWith('ord-test-') && !o.id.startsWith('ord-qr-'));
       }
-      if (Array.isArray(loaded.status_logs) && loaded.status_logs.length > 0) {
-        inMemoryStore.status_logs = loaded.status_logs;
+      if (Array.isArray(loaded.status_logs)) {
+        inMemoryStore.status_logs = loaded.status_logs.filter(l => !l.order_id.startsWith('ord-test-') && !l.order_id.startsWith('ord-qr-'));
       }
       if (Array.isArray(loaded.quality_reports) && loaded.quality_reports.length > 0) {
-        for (const report of loaded.quality_reports) {
-          if (!inMemoryStore.quality_reports.some(r => r.order_id === report.order_id)) {
-            inMemoryStore.quality_reports.push(report);
-          }
-        }
+        inMemoryStore.quality_reports = loaded.quality_reports.filter(r => !r.order_id.startsWith('ord-test-') && !r.order_id.startsWith('ord-qr-'));
+      }
+      if (Array.isArray(loaded.cleaners) && loaded.cleaners.length > 0) {
+        inMemoryStore.cleaners = loaded.cleaners;
       }
       console.log(`[inMemoryStore] Berhasil memuat status tersimpan: ${inMemoryStore.orders.length} pesanan, ${inMemoryStore.quality_reports.length} laporan mutu.`);
     }
