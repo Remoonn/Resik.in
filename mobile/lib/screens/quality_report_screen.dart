@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/order_model.dart';
@@ -296,8 +297,17 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
   }
 
   Widget _buildPhotoComparisonCard(QualityReportModel report) {
-    final beforeUrl = report.fotoBeforeSignedUrl ?? report.fotoBeforeUrl;
-    final afterUrl = report.fotoAfterSignedUrl ?? report.fotoAfterUrl;
+    final localBefore = QualityReportService.getLocalPhoto(report.orderId, isBefore: true) ??
+        QualityReportService.getLocalPhoto(widget.order.orderCode, isBefore: true);
+    final localAfter = QualityReportService.getLocalPhoto(report.orderId, isBefore: false) ??
+        QualityReportService.getLocalPhoto(widget.order.orderCode, isBefore: false);
+
+    final beforeUrl = (localBefore != null && File(localBefore).existsSync())
+        ? localBefore
+        : (report.fotoBeforeSignedUrl ?? report.fotoBeforeUrl);
+    final afterUrl = (localAfter != null && File(localAfter).existsSync())
+        ? localAfter
+        : (report.fotoAfterSignedUrl ?? report.fotoAfterUrl);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -408,8 +418,8 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
               width: double.infinity,
               color: const Color(0xFFF8FAFC),
               child: _selectedPhotoTab == 0
-                  ? _buildImage(beforeUrl, 'Sebelum Pengerjaan')
-                  : _buildImage(afterUrl, 'Sesudah Pengerjaan'),
+                  ? _buildImage(beforeUrl, 'Sebelum Pengerjaan', fallbackLocalPath: localBefore)
+                  : _buildImage(afterUrl, 'Sesudah Pengerjaan', fallbackLocalPath: localAfter),
             ),
           ),
         ],
@@ -417,8 +427,11 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
     );
   }
 
-  Widget _buildImage(String? url, String label) {
+  Widget _buildImage(String? url, String label, {String? fallbackLocalPath}) {
     if (url == null || url.isEmpty) {
+      if (fallbackLocalPath != null && File(fallbackLocalPath).existsSync()) {
+        return Image.file(File(fallbackLocalPath), fit: BoxFit.cover);
+      }
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -431,11 +444,43 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
       );
     }
 
+    // Format Base64 Data URI
+    if (url.startsWith('data:image/') || (url.length > 200 && !url.contains('/') && !url.contains('\\'))) {
+      try {
+        final rawBase64 = url.contains(',') ? url.split(',').last : url;
+        final bytes = base64Decode(rawBase64);
+        return Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {}
+    }
+
+    // Path File Lokal di Perangkat
+    final file = File(url);
+    if (file.existsSync()) {
+      return Image.file(file, fit: BoxFit.cover);
+    }
+
+    // URL Jaringan (HTTP / HTTPS Signed URL Backend)
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return Image.network(
         url,
         fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00796B)),
+            ),
+          );
+        },
         errorBuilder: (context, error, stackTrace) {
+          if (fallbackLocalPath != null) {
+            final f = File(fallbackLocalPath);
+            if (f.existsSync()) {
+              return Image.file(f, fit: BoxFit.cover);
+            }
+          }
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -450,10 +495,8 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
       );
     }
 
-    // Local file path fallback
-    final file = File(url);
-    if (file.existsSync()) {
-      return Image.file(file, fit: BoxFit.cover);
+    if (fallbackLocalPath != null && File(fallbackLocalPath).existsSync()) {
+      return Image.file(File(fallbackLocalPath), fit: BoxFit.cover);
     }
 
     return Center(

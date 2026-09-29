@@ -6,6 +6,23 @@ import '../models/quality_report_model.dart';
 /// Layanan integrasi Laporan Mutu (Quality Report) dengan Backend REST API
 class QualityReportService {
   static final http.Client _client = http.Client();
+  static final Map<String, String> _localBeforePhotos = {};
+  static final Map<String, String> _localAfterPhotos = {};
+
+  /// Menyimpan path foto lokal per ID pesanan untuk pratinjau instan di perangkat
+  static void setLocalPhotos(String orderId, {String? before, String? after}) {
+    if (before != null && before.isNotEmpty) {
+      _localBeforePhotos[orderId] = before;
+    }
+    if (after != null && after.isNotEmpty) {
+      _localAfterPhotos[orderId] = after;
+    }
+  }
+
+  /// Mengambil path foto lokal jika tersedia di memori perangkat
+  static String? getLocalPhoto(String orderId, {required bool isBefore}) {
+    return isBefore ? _localBeforePhotos[orderId] : _localAfterPhotos[orderId];
+  }
 
   /// Mendapatkan template area checklist berdasarkan kategori layanan
   List<String> getChecklistTemplateForCategory(String? category) {

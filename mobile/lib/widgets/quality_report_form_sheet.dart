@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -119,17 +120,46 @@ class _QualityReportFormSheetState extends State<QualityReportFormSheet> {
         .map((e) => {'area': e.key, 'completed': e.value})
         .toList();
 
+    String? beforeBase64;
+    String? afterBase64;
+    try {
+      if (_fotoBefore != null) {
+        final bBytes = await _fotoBefore!.readAsBytes();
+        beforeBase64 = base64Encode(bBytes);
+      }
+      if (_fotoAfter != null) {
+        final aBytes = await _fotoAfter!.readAsBytes();
+        afterBase64 = base64Encode(aBytes);
+      }
+    } catch (e) {
+      debugPrint('Gagal membaca byte foto: $e');
+    }
+
     final payload = {
       'order_id': widget.order.id,
       'checklist_area': checklistPayload,
       'foto_before_path': 'orders/${widget.order.id}/before_${now.millisecondsSinceEpoch}.webp',
       'foto_after_path': 'orders/${widget.order.id}/after_${now.millisecondsSinceEpoch}.webp',
+      'foto_before_data': ?beforeBase64,
+      'foto_after_data': ?afterBase64,
       'catatan_petugas': _catatanController.text.trim(),
       'completed_at': now.toIso8601String(),
       'role': 'cleaner',
       'cleaner_id': widget.order.cleanerId,
       'service_category': widget.order.serviceCategory,
     };
+
+    // Simpan cache path foto lokal di memori aplikasi
+    QualityReportService.setLocalPhotos(
+      widget.order.id,
+      before: _fotoBefore?.path,
+      after: _fotoAfter?.path,
+    );
+    QualityReportService.setLocalPhotos(
+      widget.order.orderCode,
+      before: _fotoBefore?.path,
+      after: _fotoAfter?.path,
+    );
 
     final result = await _service.submitReport(payload);
 
@@ -146,8 +176,8 @@ class _QualityReportFormSheetState extends State<QualityReportFormSheet> {
         checklistArea: checklistPayload
             .map((item) => ChecklistItemModel.fromJson(item))
             .toList(),
-        fotoBeforeUrl: payload['foto_before_path'] as String,
-        fotoAfterUrl: payload['foto_after_path'] as String,
+        fotoBeforeUrl: _fotoBefore?.path ?? payload['foto_before_path'] as String,
+        fotoAfterUrl: _fotoAfter?.path ?? payload['foto_after_path'] as String,
         catatanPetugas: _catatanController.text.trim(),
         completedAt: now,
         submittedAt: now,

@@ -142,6 +142,40 @@ router.post('/', async (req, res) => {
   };
   inMemoryStore.quality_reports.push(newReport);
 
+  // Simpan data biner foto jika dikirim dalam format base64
+  if (!inMemoryStore.quality_report_photos) {
+    inMemoryStore.quality_report_photos = {};
+  }
+
+  const parseBase64 = (dataUriOrBase64) => {
+    if (!dataUriOrBase64 || typeof dataUriOrBase64 !== 'string') return null;
+    const matches = dataUriOrBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (matches) {
+      return {
+        contentType: matches[1],
+        buffer: Buffer.from(matches[2], 'base64')
+      };
+    }
+    return {
+      contentType: 'image/jpeg',
+      buffer: Buffer.from(dataUriOrBase64, 'base64')
+    };
+  };
+
+  const beforePhoto = parseBase64(req.body.foto_before_data);
+  const afterPhoto = parseBase64(req.body.foto_after_data);
+
+  if (beforePhoto || afterPhoto) {
+    const photoEntry = {
+      before: beforePhoto,
+      after: afterPhoto
+    };
+    inMemoryStore.quality_report_photos[order.id] = photoEntry;
+    if (order.order_code) {
+      inMemoryStore.quality_report_photos[order.order_code] = photoEntry;
+    }
+  }
+
   // 8. Mutasi Status Pesanan Menjadi 'Selesai'
   order.status_pekerjaan = 'Selesai';
   inMemoryStore.status_logs.push({
@@ -241,12 +275,16 @@ router.get('/:order_id', async (req, res) => {
     // Mode fallback
   }
 
-  // Fallback adaptif untuk mode mock/testing
+  // Fallback adaptif untuk mode mock/testing atau lokal device
+  const host = req.get('host') || 'localhost:3000';
+  const protocol = req.protocol || 'http';
+  const baseUrl = `${protocol}://${host}/api`;
+
   if (!fotoBeforeSignedUrl) {
-    fotoBeforeSignedUrl = `https://storage.supabase.co/storage/v1/object/sign/quality-reports/${report.foto_before_url}?token=mock-token-${Date.now()}`;
+    fotoBeforeSignedUrl = `${baseUrl}/quality-reports/${order.id}/photo/before?token=signed-${Date.now()}`;
   }
   if (!fotoAfterSignedUrl) {
-    fotoAfterSignedUrl = `https://storage.supabase.co/storage/v1/object/sign/quality-reports/${report.foto_after_url}?token=mock-token-${Date.now()}`;
+    fotoAfterSignedUrl = `${baseUrl}/quality-reports/${order.id}/photo/after?token=signed-${Date.now()}`;
   }
 
   // 5. Temukan Nama Petugas
@@ -270,6 +308,28 @@ router.get('/:order_id', async (req, res) => {
       is_locked: true
     }
   });
+});
+
+// GET /api/quality-reports/:order_id/photo/:type — Streaming foto sebelum / sesudah pengerjaan
+router.get('/:order_id/photo/:type', (req, res) => {
+  const { order_id, type } = req.params;
+  const photos = inMemoryStore.quality_report_photos &&
+    (inMemoryStore.quality_report_photos[order_id] ||
+     inMemoryStore.quality_report_photos[Object.keys(inMemoryStore.quality_report_photos).find(k => k === order_id)]);
+
+  const photo = photos && (type === 'after' ? photos.after : photos.before);
+
+  if (photo && photo.buffer) {
+    res.set('Content-Type', photo.contentType || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=1800');
+    return res.send(photo.buffer);
+  }
+
+  // Fallback 1x1 teal PNG jika foto belum diunggah atau testing
+  const fallbackPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkWPifAQAE+wH9Z5g6WAAAAABJRU5ErkJggg==', 'base64');
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'public, max-age=1800');
+  return res.send(fallbackPng);
 });
 
 export default router;

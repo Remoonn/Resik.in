@@ -326,6 +326,48 @@ describe('POST /api/quality-reports — 9-Stage Validation Pipeline', () => {
       assert.strictEqual(res.status, 404);
       assert.strictEqual(body.error, 'REPORT_NOT_FOUND');
     });
+
+    test('Menyimpan dan menyajikan data biner foto via GET /api/quality-reports/:order_id/photo/:type', async () => {
+      const order = setupOrderInProgress();
+      const dummyPhotoBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkWPifAQAE+wH9Z5g6WAAAAABJRU5ErkJggg==';
+
+      const payload = {
+        order_id: order.id,
+        checklist_area: CHECKLIST_TEMPLATES.rumah.map(a => ({ area: a, completed: true })),
+        foto_before_path: `orders/${order.id}/before_photo.webp`,
+        foto_after_path: `orders/${order.id}/after_photo.webp`,
+        foto_before_data: `data:image/png;base64,${dummyPhotoBase64}`,
+        foto_after_data: dummyPhotoBase64,
+        completed_at: new Date(Date.now() - 1000).toISOString(),
+        role: 'cleaner',
+        cleaner_id: 'cln-001'
+      };
+
+      const submitRes = await fetch(`${baseUrl}/api/quality-reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      assert.strictEqual(submitRes.status, 201);
+
+      // Ambil foto before via streaming endpoint
+      const photoBeforeRes = await fetch(`${baseUrl}/api/quality-reports/${order.id}/photo/before`);
+      assert.strictEqual(photoBeforeRes.status, 200);
+      assert.strictEqual(photoBeforeRes.headers.get('content-type'), 'image/png');
+      const beforeBuffer = await photoBeforeRes.arrayBuffer();
+      assert.ok(beforeBuffer.byteLength > 0);
+
+      // Ambil foto after via streaming endpoint
+      const photoAfterRes = await fetch(`${baseUrl}/api/quality-reports/${order.id}/photo/after`);
+      assert.strictEqual(photoAfterRes.status, 200);
+      assert.strictEqual(photoAfterRes.headers.get('content-type'), 'image/jpeg');
+
+      // Ambil foto pesanan yang belum diupload foto (fallback PNG)
+      const emptyOrder = setupOrderInProgress();
+      const fallbackRes = await fetch(`${baseUrl}/api/quality-reports/${emptyOrder.id}/photo/before`);
+      assert.strictEqual(fallbackRes.status, 200);
+      assert.strictEqual(fallbackRes.headers.get('content-type'), 'image/png');
+    });
   });
 });
 
