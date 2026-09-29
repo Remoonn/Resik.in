@@ -68,6 +68,7 @@ class _QualityReportFormSheetState extends State<QualityReportFormSheet> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal memilih foto: ${e.toString()}')),
       );

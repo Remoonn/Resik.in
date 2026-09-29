@@ -1,5 +1,5 @@
-/// Model data laporan mutu hasil pekerjaan (Quality Report)
-/// Source of Truth: docs/PRD-Resik.in.md (FR-10) & docs/BUSINESS-RULES.md (BR-QRP)
+// Model data laporan mutu hasil pekerjaan (Quality Report)
+// Source of Truth: docs/PRD-Resik.in.md (FR-10) & docs/BUSINESS-RULES.md (BR-QRP)
 
 class ChecklistItemModel {
   final String area;
