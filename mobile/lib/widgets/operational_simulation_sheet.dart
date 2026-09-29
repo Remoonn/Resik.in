@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/order_model.dart';
 import '../services/api_service.dart';
+import 'quality_report_form_sheet.dart';
 
 class OperationalSimulationSheet extends StatefulWidget {
   final OrderModel order;
@@ -296,31 +297,30 @@ class _OperationalSimulationSheetState extends State<OperationalSimulationSheet>
                 },
               ),
 
-            // 6. Sedang Dikerjakan
+            // 6. Sedang Dikerjakan -> Selesaikan Pekerjaan via Laporan Mutu
             if (_currentOrder.statusPekerjaan == 'Sedang Dikerjakan')
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF4FF),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFBFC7D2)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Color(0xFF006194), size: 22),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Pekerjaan sedang berlangsung. Transisi menuju "Selesai" adalah hak eksklusif Quality Report Digital (Sprint 4).',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 12,
-                          color: Color(0xFF0B1C30),
-                        ),
-                      ),
+              _buildActionButton(
+                icon: Icons.assignment_turned_in_outlined,
+                title: 'Selesaikan Pekerjaan (Kirim Laporan Mutu)',
+                subtitle: 'Isi checklist mutu & unggah foto bukti pengerjaan',
+                color: const Color(0xFF00796B),
+                onTap: () async {
+                  await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (ctx) => QualityReportFormSheet(
+                      order: _currentOrder,
+                      onSubmitted: (report) async {
+                        final updated = await ApiService.fetchOrderById(_currentOrder.id);
+                        if (updated != null && mounted) {
+                          setState(() => _currentOrder = updated);
+                          widget.onOrderUpdated?.call(updated);
+                        }
+                      },
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
 
             // Status Terminal

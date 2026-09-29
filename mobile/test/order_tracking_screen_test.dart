@@ -172,5 +172,55 @@ void main() {
       expect(find.text('Pembersihan mendalam sedang aktif'), findsOneWidget);
       expect(find.text('Progres Tahap'), findsOneWidget);
     });
+
+    testWidgets('5. Menampilkan banner Laporan Mutu dan tombol navigasi saat status pesanan adalah Selesai', (tester) async {
+      final completedOrder = OrderModel(
+        id: 'ord-test-005',
+        orderCode: 'RSK-20260930-005',
+        serviceId: 'srv-001',
+        serviceName: 'Pembersihan Rumah',
+        serviceCategory: 'rumah',
+        tanggalLayanan: '2026-09-30',
+        startTime: '08:00',
+        endTime: '10:00',
+        duration: 2,
+        alamatLengkap: 'Jl. Kaliurang KM 14.5 No. 20',
+        patokanLokasi: 'Depan Warung Biru',
+        luasArea: 'Tipe 36',
+        hargaSaatBooking: 120000.0,
+        totalBiaya: 120000.0,
+        statusPembayaran: 'Sudah Bayar',
+        statusPekerjaan: 'Selesai',
+        cleanerId: 'cleaner-01',
+        cleaner: CleanerModel(
+          id: 'cleaner-01',
+          nama: 'Ahmad Santoso',
+          nomorKontak: '081234567890',
+          keahlian: ['rumah'],
+          pengalamanTahun: 3,
+          ratingRataRata: 4.9,
+          totalUlasan: 45,
+          totalPekerjaan: 56,
+          tingkatKepuasan: 98,
+          ketepatanWaktu: 96,
+          statusOperasional: 'Aktif',
+          sertifikasi: ['BNSP K3'],
+          ulasan: [],
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OrderTrackingScreen(
+            orderId: completedOrder.id,
+            initialOrder: completedOrder,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Lihat Laporan Mutu (Quality Report)'), findsOneWidget);
+      expect(find.text('Laporan Hasil Pekerjaan Siap Ditinjau'), findsOneWidget);
+    });
   });
 }

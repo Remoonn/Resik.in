@@ -4,6 +4,7 @@ import '../constants.dart';
 import '../models/order_model.dart';
 import '../services/api_service.dart';
 import '../widgets/operational_simulation_sheet.dart';
+import 'quality_report_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -333,6 +334,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                           const SizedBox(height: 16),
                         ],
 
+                        // Status Terminal: Selesai -> Laporan Mutu Banner
+                        if (_order!.statusPekerjaan == 'Selesai') ...[
+                          _buildQualityReportBanner(),
+                          const SizedBox(height: 16),
+                        ],
+
                         // Top Order Info Pill & Pulse Badge
                         _buildHeaderOrderInfo(),
                         const SizedBox(height: 16),
@@ -435,6 +442,104 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                   ),
                 ],
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQualityReportBanner() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF81C784), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2E7D32),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.verified_rounded, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Laporan Hasil Pekerjaan Siap Ditinjau',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B5E20),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Pekerjaan telah tuntas & diverifikasi digital',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 11,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Petugas telah mengunggah dokumentasi foto Sebelum/Sesudah dan checklist kebersihan ruangan yang terkunci permanen.',
+            style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 12,
+              color: Color(0xFF2E7D32),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => QualityReportScreen(order: _order!),
+                ),
+              );
+            },
+            icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
+            label: const Text(
+              'Lihat Laporan Mutu (Quality Report)',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00796B),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 46),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
             ),
           ),
         ],
