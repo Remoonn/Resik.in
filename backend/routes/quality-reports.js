@@ -1,7 +1,14 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { inMemoryStore, supabase, getServices } from '../lib/supabase.js';
 import { CHECKLIST_TEMPLATES } from '../lib/checklist-templates.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const assetsDir = path.join(__dirname, '..', 'assets');
 
 const router = Router();
 
@@ -325,7 +332,17 @@ router.get('/:order_id/photo/:type', (req, res) => {
     return res.send(photo.buffer);
   }
 
-  // Fallback 1x1 teal PNG jika foto belum diunggah atau testing
+  // Jika belum ada foto fisik kustom yang diunggah, sajikan sample foto Before/After resolusi tinggi
+  const sampleFileName = type === 'after' ? 'sample_after.jpg' : 'sample_before.jpg';
+  const sampleFilePath = path.join(assetsDir, sampleFileName);
+
+  if (fs.existsSync(sampleFilePath)) {
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=1800');
+    return res.sendFile(sampleFilePath);
+  }
+
+  // Fallback 1x1 teal PNG jika aset tidak ditemukan
   const fallbackPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkWPifAQAE+wH9Z5g6WAAAAABJRU5ErkJggg==', 'base64');
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=1800');

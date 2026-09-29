@@ -362,11 +362,11 @@ describe('POST /api/quality-reports — 9-Stage Validation Pipeline', () => {
       assert.strictEqual(photoAfterRes.status, 200);
       assert.strictEqual(photoAfterRes.headers.get('content-type'), 'image/jpeg');
 
-      // Ambil foto pesanan yang belum diupload foto (fallback PNG)
+      // Ambil foto pesanan yang belum diupload foto (fallback sample JPEG)
       const emptyOrder = setupOrderInProgress();
       const fallbackRes = await fetch(`${baseUrl}/api/quality-reports/${emptyOrder.id}/photo/before`);
       assert.strictEqual(fallbackRes.status, 200);
-      assert.strictEqual(fallbackRes.headers.get('content-type'), 'image/png');
+      assert.strictEqual(fallbackRes.headers.get('content-type'), 'image/jpeg');
     });
   });
 });
