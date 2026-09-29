@@ -3,6 +3,7 @@ import 'cleaner_model.dart';
 class OrderModel {
   final String id;
   final String orderCode;
+  final String? customerId;
   final String serviceId;
   final String? serviceName;
   final String? serviceCategory;
@@ -32,6 +33,7 @@ class OrderModel {
   OrderModel({
     required this.id,
     required this.orderCode,
+    this.customerId,
     required this.serviceId,
     this.serviceName,
     this.serviceCategory,
@@ -75,6 +77,7 @@ class OrderModel {
     return OrderModel(
       id: json['id']?.toString() ?? '',
       orderCode: json['order_code']?.toString() ?? '',
+      customerId: json['customer_id']?.toString(),
       serviceId: json['service_id']?.toString() ?? '',
       serviceName: sName ?? json['nama_layanan']?.toString(),
       serviceCategory: sCategory ?? json['kategori']?.toString() ?? json['service_kategori']?.toString(),

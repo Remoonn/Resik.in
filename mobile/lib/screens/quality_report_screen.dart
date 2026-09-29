@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/order_model.dart';
 import '../models/quality_report_model.dart';
+import '../services/auth_service.dart';
 import '../services/quality_report_service.dart';
 
 /// Layar Laporan Mutu Hasil Kerja (Quality Report Screen)
@@ -47,7 +48,15 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
       _errorMessage = null;
     });
 
-    final report = await _service.fetchReport(widget.order.id);
+    final currentUser = AuthService().currentUser;
+    final userId = currentUser?.id ?? widget.order.customerId ?? 'usr-customer-001';
+    final role = currentUser?.role ?? 'customer';
+
+    final report = await _service.fetchReport(
+      widget.order.id,
+      userId: userId,
+      role: role,
+    );
     if (!mounted) return;
 
     if (report != null) {

@@ -209,7 +209,7 @@ router.post('/', async (req, res) => {
     const newOrder = {
       id: crypto.randomUUID(),
       order_code: generateOrderCode(body.tanggal_layanan),
-      customer_id: body.customer_id || 'usr-cust-001',
+      customer_id: body.customer_id || 'usr-customer-001',
       service_id: service.id,
       service_kategori: service.kategori,
       cleaner_id: null,
