@@ -222,4 +222,76 @@ describe('POST /api/quality-reports — 9-Stage Validation Pipeline', () => {
     assert.strictEqual(res.status, 400);
     assert.strictEqual(body.error, 'INVALID_STORAGE_PATH');
   });
+
+  describe('GET /api/quality-reports/:order_id — Signed URL & RBAC', () => {
+    test('Pelanggan pemilik order dan Petugas berhasil mengambil laporan dengan signed URLs', async () => {
+      const order = setupOrderInProgress();
+      const payload = {
+        order_id: order.id,
+        checklist_area: CHECKLIST_TEMPLATES.rumah.map(a => ({ area: a, completed: true })),
+        foto_before_path: `orders/${order.id}/before_123.webp`,
+        foto_after_path: `orders/${order.id}/after_456.webp`,
+        catatan_petugas: 'Selesai rapi',
+        completed_at: new Date(Date.now() - 1000).toISOString(),
+        role: 'cleaner',
+        cleaner_id: 'cln-001'
+      };
+
+      await fetch(`${baseUrl}/api/quality-reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // Customer pemilik order mengambil laporan
+      const res = await fetch(`${baseUrl}/api/quality-reports/${order.id}?user_id=${order.customer_id}&role=customer`);
+      const body = await res.json();
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(body.success, true);
+      assert.strictEqual(body.data.order_id, order.id);
+      assert.ok(body.data.foto_before_signed_url);
+      assert.ok(body.data.foto_after_signed_url);
+      assert.strictEqual(body.data.signed_url_expires_in, 1800);
+      assert.strictEqual(body.data.is_locked, true);
+    });
+
+    test('Pengguna lain (bukan customer, bukan cleaner, bukan admin) ditolak dengan 403 Forbidden', async () => {
+      const order = setupOrderInProgress();
+      const payload = {
+        order_id: order.id,
+        checklist_area: CHECKLIST_TEMPLATES.rumah.map(a => ({ area: a, completed: true })),
+        foto_before_path: `orders/${order.id}/before_123.webp`,
+        foto_after_path: `orders/${order.id}/after_456.webp`,
+        completed_at: new Date(Date.now() - 1000).toISOString(),
+        role: 'cleaner',
+        cleaner_id: 'cln-001'
+      };
+
+      await fetch(`${baseUrl}/api/quality-reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // User lain yang tidak berhak
+      const res = await fetch(`${baseUrl}/api/quality-reports/${order.id}?user_id=usr-other-stranger&role=customer`);
+      const body = await res.json();
+
+      assert.strictEqual(res.status, 403);
+      assert.strictEqual(body.success, false);
+      assert.strictEqual(body.error, 'FORBIDDEN_REPORT_ACCESS');
+    });
+
+    test('Mengembalikan 404 jika order belum memiliki laporan mutu', async () => {
+      const order = setupOrderInProgress();
+
+      const res = await fetch(`${baseUrl}/api/quality-reports/${order.id}?user_id=${order.customer_id}&role=customer`);
+      const body = await res.json();
+
+      assert.strictEqual(res.status, 404);
+      assert.strictEqual(body.error, 'REPORT_NOT_FOUND');
+    });
+  });
 });
+
