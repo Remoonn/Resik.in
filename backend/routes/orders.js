@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { inMemoryStore, getServices } from '../lib/supabase.js';
+import { inMemoryStore, getServices, saveStateToDisk } from '../lib/supabase.js';
 
 const router = Router();
 
@@ -247,6 +247,8 @@ router.post('/', async (req, res) => {
       created_at: newOrder.created_at
     });
 
+    saveStateToDisk();
+
     return res.status(201).json({
       success: true,
       message: 'Pesanan berhasil dibuat, silakan selesaikan pembayaran',
@@ -305,6 +307,8 @@ router.post('/:id/pay', (req, res) => {
     catatan: 'Simulasi pembayaran diverifikasi server: status pembayaran berubah menjadi Sudah Bayar',
     created_at: now
   });
+
+  saveStateToDisk();
 
   return res.status(200).json({
     success: true,
@@ -386,6 +390,8 @@ router.patch('/:id/status', (req, res) => {
     catatan: `Status pekerjaan diperbarui menjadi ${status_baru}`,
     created_at: new Date().toISOString()
   });
+
+  saveStateToDisk();
 
   return res.status(200).json({
     success: true,
@@ -473,6 +479,8 @@ router.post('/:id/assign', (req, res) => {
     created_at: new Date().toISOString()
   });
 
+  saveStateToDisk();
+
   return res.status(200).json({
     success: true,
     message: 'Petugas berhasil ditugaskan ke pesanan',
@@ -557,6 +565,8 @@ router.post('/:id/reassign', (req, res) => {
     created_at: new Date().toISOString()
   });
 
+  saveStateToDisk();
+
   return res.status(200).json({
     success: true,
     message: 'Petugas berhasil dialihkan',
@@ -628,6 +638,8 @@ router.post('/:id/cancel', (req, res) => {
     catatan: `Pesanan dibatalkan oleh ${actorRole}. Alasan: ${order.cancellation_reason}`,
     created_at: now
   });
+
+  saveStateToDisk();
 
   return res.status(200).json({
     success: true,

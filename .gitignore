@@ -7,3 +7,4 @@ node_modules/
 .vscode/
 build/
 .dart_tool/
+.in_memory_state.json

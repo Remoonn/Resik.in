@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models/quality_report_model.dart';
@@ -93,15 +94,19 @@ class QualityReportService {
           .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
 
       final response = await _client.get(uri).timeout(const Duration(seconds: 15));
+      debugPrint('[QualityReportService] GET $uri -> status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['data'] != null) {
           return QualityReportModel.fromJson(body['data'] as Map<String, dynamic>);
         }
+      } else {
+        debugPrint('[QualityReportService] Response error: ${response.body}');
       }
       return null;
     } catch (e) {
+      debugPrint('[QualityReportService] fetchReport exception: $e');
       return null;
     }
   }

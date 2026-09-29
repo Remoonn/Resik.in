@@ -50,7 +50,7 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
     });
 
     final currentUser = AuthService().currentUser;
-    final userId = currentUser?.id ?? widget.order.customerId ?? 'usr-customer-001';
+    final userId = widget.order.customerId ?? currentUser?.id ?? 'usr-customer-001';
     final role = currentUser?.role ?? 'customer';
 
     final report = await _service.fetchReport(
@@ -67,7 +67,7 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
       });
     } else {
       setState(() {
-        _errorMessage = 'Laporan mutu belum tersedia atau sedang diproses.';
+        _errorMessage = 'Laporan mutu belum tersedia atau sedang diproses.\nKetuk Coba Lagi setelah server terhubung.';
         _isLoading = false;
       });
     }

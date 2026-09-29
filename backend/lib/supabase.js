@@ -1,7 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const STATE_FILE = path.join(__dirname, '..', '.in_memory_state.json');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
@@ -139,9 +146,98 @@ export const inMemoryStore = {
       sertifikasi: ['Kelulusan Akademi Resik.in 2026', 'Bebas Catatan Kriminal']
     }
   ],
-  orders: [],
+  orders: [
+    {
+      id: 'ea48e813-ac5d-4004-9ce3-67113d746d37',
+      order_code: 'RSK-20261001-001',
+      customer_id: 'usr-customer-001',
+      service_id: '2abfccbb-1643-4519-b4d0-c72996e8bb9f',
+      service_kategori: 'kos',
+      cleaner_id: 'cln-004',
+      preferensi_petugas_id: 'cln-004',
+      tanggal_layanan: '2026-10-01',
+      start_time: '10:00',
+      end_time: '12:00',
+      duration: 2,
+      alamat_lengkap: 'Jl. Besi no99',
+      patokan_lokasi: 'pagar merah',
+      luas_area: 'kamar 3x4m',
+      catatan_khusus: null,
+      harga_saat_booking: 75000,
+      total_biaya: 75000,
+      status_pembayaran: 'Sudah Bayar',
+      payment_timestamp: '2026-09-29T18:15:10.711Z',
+      status_pekerjaan: 'Selesai',
+      cancellation_reason: null,
+      cancelled_by: null,
+      cancelled_at: null,
+      created_at: '2026-09-29T18:15:09.693Z',
+      started_at: '2026-09-29T18:15:15.523Z'
+    },
+    {
+      id: '994f6abf-b25b-420e-9e86-0a9aa48c2aa7',
+      order_code: 'RSK-20261001-001',
+      customer_id: 'usr-customer-001',
+      service_id: '2abfccbb-1643-4519-b4d0-c72996e8bb9f',
+      service_kategori: 'kos',
+      cleaner_id: 'cln-004',
+      preferensi_petugas_id: 'cln-004',
+      tanggal_layanan: '2026-10-01',
+      start_time: '10:00',
+      end_time: '12:00',
+      duration: 2,
+      alamat_lengkap: 'Jl. Besi no99',
+      patokan_lokasi: 'pagar merah',
+      luas_area: 'kamar 3x4m',
+      catatan_khusus: null,
+      harga_saat_booking: 75000,
+      total_biaya: 75000,
+      status_pembayaran: 'Sudah Bayar',
+      payment_timestamp: '2026-09-29T18:15:10.711Z',
+      status_pekerjaan: 'Selesai',
+      cancellation_reason: null,
+      cancelled_by: null,
+      cancelled_at: null,
+      created_at: '2026-09-29T18:15:09.693Z',
+      started_at: '2026-09-29T18:15:15.523Z'
+    }
+  ],
   status_logs: [],
-  quality_reports: [],
+  quality_reports: [
+    {
+      id: 'a8a2f86e-2026-461e-bdcf-2acb2b327094',
+      order_id: 'ea48e813-ac5d-4004-9ce3-67113d746d37',
+      cleaner_id: 'cln-004',
+      checklist_area: [
+        { area: 'Kamar Tidur / Utama', completed: true },
+        { area: 'Kamar Mandi', completed: true },
+        { area: 'Area yang Termasuk Paket', completed: true }
+      ],
+      foto_before_url: 'orders/ea48e813-ac5d-4004-9ce3-67113d746d37/before.jpg',
+      foto_after_url: 'orders/ea48e813-ac5d-4004-9ce3-67113d746d37/after.jpg',
+      catatan_petugas: 'Pembersihan tuntas sesuai standar mutu Resik.in',
+      started_at: '2026-09-29T18:15:15.523Z',
+      completed_at: '2026-09-29T18:15:25.601Z',
+      submitted_at: '2026-09-29T18:15:25.525Z'
+    },
+    {
+      id: 'b9b3e97f-2026-461e-bdcf-2acb2b327095',
+      order_id: '994f6abf-b25b-420e-9e86-0a9aa48c2aa7',
+      cleaner_id: 'cln-004',
+      checklist_area: [
+        { area: 'Kamar Tidur / Utama', completed: true },
+        { area: 'Kamar Mandi', completed: true },
+        { area: 'Area yang Termasuk Paket', completed: true }
+      ],
+      foto_before_url: 'orders/994f6abf-b25b-420e-9e86-0a9aa48c2aa7/before.jpg',
+      foto_after_url: 'orders/994f6abf-b25b-420e-9e86-0a9aa48c2aa7/after.jpg',
+      catatan_petugas: 'Pembersihan tuntas sesuai standar mutu Resik.in',
+      started_at: '2026-09-29T18:15:15.523Z',
+      completed_at: '2026-09-29T18:15:25.601Z',
+      submitted_at: '2026-09-29T18:15:25.525Z'
+    }
+  ],
+  quality_report_photos: {},
   reviews: [
     {
       id: 'rev-001',
@@ -235,3 +331,51 @@ export async function getServices(all = false) {
     };
   }
 }
+
+// 4. Persistence Helper untuk In-Memory Store (Menjaga data saat server di-restart)
+export function saveStateToDisk() {
+  try {
+    const dataToSave = {
+      orders: inMemoryStore.orders,
+      status_logs: inMemoryStore.status_logs,
+      quality_reports: inMemoryStore.quality_reports,
+      cleaners: inMemoryStore.cleaners
+    };
+    fs.writeFileSync(STATE_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[inMemoryStore] Gagal menyimpan cache ke disk:', err.message);
+  }
+}
+
+export function loadStateFromDisk() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const content = fs.readFileSync(STATE_FILE, 'utf8');
+      const loaded = JSON.parse(content);
+      if (Array.isArray(loaded.orders) && loaded.orders.length > 0) {
+        // Merge orders tanpa duplikasi
+        for (const order of loaded.orders) {
+          if (!inMemoryStore.orders.some(o => o.id === order.id)) {
+            inMemoryStore.orders.push(order);
+          }
+        }
+      }
+      if (Array.isArray(loaded.status_logs) && loaded.status_logs.length > 0) {
+        inMemoryStore.status_logs = loaded.status_logs;
+      }
+      if (Array.isArray(loaded.quality_reports) && loaded.quality_reports.length > 0) {
+        for (const report of loaded.quality_reports) {
+          if (!inMemoryStore.quality_reports.some(r => r.order_id === report.order_id)) {
+            inMemoryStore.quality_reports.push(report);
+          }
+        }
+      }
+      console.log(`[inMemoryStore] Berhasil memuat status tersimpan: ${inMemoryStore.orders.length} pesanan, ${inMemoryStore.quality_reports.length} laporan mutu.`);
+    }
+  } catch (err) {
+    console.warn('[inMemoryStore] Tidak dapat memuat cache, menggunakan nilai bawaan:', err.message);
+  }
+}
+
+// Jalankan pemulihan cache saat modul dimuat
+loadStateFromDisk();

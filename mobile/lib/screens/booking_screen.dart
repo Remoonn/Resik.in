@@ -4,6 +4,7 @@ import '../models/service_model.dart';
 import '../models/order_model.dart';
 import '../models/cleaner_model.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'payment_screen.dart';
 import 'cleaner_detail_screen.dart';
@@ -130,7 +131,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
     final tanggalFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
+    final currentUser = AuthService().currentUser;
     final payload = {
+      if (currentUser?.id != null) 'customer_id': currentUser!.id,
       'service_id': widget.service.id,
       'preferensi_petugas_id': _selectedCleanerId,
       'tanggal_layanan': tanggalFormatted,
