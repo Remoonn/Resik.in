@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { inMemoryStore, supabase } from '../lib/supabase.js';
+import { inMemoryStore, supabase, getServices } from '../lib/supabase.js';
 import { CHECKLIST_TEMPLATES } from '../lib/checklist-templates.js';
 
 const router = Router();
 
 // POST /api/quality-reports — Pembuatan & Finalisasi Laporan Mutu (Mandatory Gate to Selesai)
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const {
     order_id,
     checklist_area,
@@ -55,9 +55,25 @@ router.post('/', (req, res) => {
   }
 
   // 4. Verifikasi Template Checklist Penuh
-  const service = inMemoryStore.services.find(s => s.id === order.service_id);
-  const kategori = service ? service.kategori : 'rumah';
-  const expectedAreas = CHECKLIST_TEMPLATES[kategori] || CHECKLIST_TEMPLATES.rumah;
+  let service = inMemoryStore.services.find(s => s.id === order.service_id);
+  if (!service) {
+    const { data: services } = await getServices(true);
+    service = (services || []).find(s => s.id === order.service_id);
+  }
+
+  const rawKategori = (
+    order.service_kategori ||
+    (service ? service.kategori : null) ||
+    req.body.service_category ||
+    req.body.kategori ||
+    'rumah'
+  ).toString().toLowerCase();
+
+  const kategori = (rawKategori === 'pasca_renovasi' || rawKategori === 'renovasi')
+    ? 'renovasi'
+    : rawKategori;
+
+  const expectedAreas = CHECKLIST_TEMPLATES[kategori] || CHECKLIST_TEMPLATES[rawKategori] || CHECKLIST_TEMPLATES.rumah;
 
   if (!Array.isArray(checklist_area)) {
     return res.status(400).json({

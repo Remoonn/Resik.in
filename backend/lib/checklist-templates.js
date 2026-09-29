@@ -28,5 +28,11 @@ export const CHECKLIST_TEMPLATES = {
     'Pembersihan Lantai & Sudut Ruangan',
     'Pembersihan Debu & Sisa Material Semen/Cat',
     'Ruangan yang Termasuk Paket'
+  ],
+  pasca_renovasi: [
+    'Area Utama Pekerjaan',
+    'Pembersihan Lantai & Sudut Ruangan',
+    'Pembersihan Debu & Sisa Material Semen/Cat',
+    'Ruangan yang Termasuk Paket'
   ]
 };

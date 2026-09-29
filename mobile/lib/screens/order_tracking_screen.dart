@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../models/order_model.dart';
 import '../services/api_service.dart';
+import '../services/quality_report_service.dart';
 import '../widgets/operational_simulation_sheet.dart';
 import 'quality_report_screen.dart';
 
@@ -1153,6 +1154,23 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
   }
 
   Widget _buildRealtimeChecklist() {
+    final category = _order?.serviceCategory;
+    final areas = QualityReportService().getChecklistTemplateForCategory(category);
+    final status = _order?.statusPekerjaan ?? '';
+
+    final bool isSelesai = status == 'Selesai';
+    final bool isSedangDikerjakan = status == 'Sedang Dikerjakan';
+    final int totalCount = areas.length;
+
+    int completedCount = 0;
+    int activeIdx = -1;
+    if (isSelesai) {
+      completedCount = totalCount;
+    } else if (isSedangDikerjakan) {
+      completedCount = totalCount > 2 ? 1 : (totalCount > 1 ? 1 : 0);
+      activeIdx = completedCount < totalCount ? completedCount : -1;
+    }
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1163,10 +1181,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Checklist Pembersihan Real-Time',
                 style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
@@ -1176,8 +1194,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                 ),
               ),
               Text(
-                '2 dari 4 Selesai',
-                style: TextStyle(
+                '$completedCount dari $totalCount Selesai',
+                style: const TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -1187,10 +1205,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
             ],
           ),
           const SizedBox(height: 12),
-          _buildChecklistItem('Pembersihan debu plafon & dinding', true, 'Selesai'),
-          _buildChecklistItem('Pengikisan sisa semen kering di lantai', true, 'Selesai'),
-          _buildChecklistItem('Poles lantai & wet vacuuming', false, 'Sedang Berlangsung', isActive: true),
-          _buildChecklistItem('Pembersihan kaca jendela & kusen', false, 'Dalam Antrean'),
+          ...areas.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final areaTitle = entry.value;
+
+            if (isSelesai || idx < completedCount) {
+              return _buildChecklistItem(areaTitle, true, 'Selesai');
+            } else if (idx == activeIdx) {
+              return _buildChecklistItem(areaTitle, false, 'Sedang Berlangsung', isActive: true);
+            } else {
+              return _buildChecklistItem(areaTitle, false, 'Dalam Antrean');
+            }
+          }),
         ],
       ),
     );

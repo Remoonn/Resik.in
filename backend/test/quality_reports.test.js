@@ -223,6 +223,40 @@ describe('POST /api/quality-reports — 9-Stage Validation Pipeline', () => {
     assert.strictEqual(body.error, 'INVALID_STORAGE_PATH');
   });
 
+  test('POST /api/quality-reports sukses memproses pesanan kategori kos dengan 3 checklist area', async () => {
+    const order = setupOrderInProgress({
+      service_id: 'uuid-supabase-kos-1234',
+      service_kategori: 'kos'
+    });
+
+    const payload = {
+      order_id: order.id,
+      service_category: 'kos',
+      checklist_area: [
+        { area: 'Kamar Tidur / Utama', completed: true },
+        { area: 'Kamar Mandi', completed: true },
+        { area: 'Area yang Termasuk Paket', completed: true }
+      ],
+      foto_before_path: `orders/${order.id}/before_kos.webp`,
+      foto_after_path: `orders/${order.id}/after_kos.webp`,
+      catatan_petugas: 'Kamar kos rapi dan wangi.',
+      completed_at: new Date(Date.now() - 5000).toISOString(),
+      role: 'cleaner',
+      cleaner_id: 'cln-001'
+    };
+
+    const res = await fetch(`${baseUrl}/api/quality-reports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const body = await res.json();
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(body.data.status_pekerjaan, 'Selesai');
+  });
+
   describe('GET /api/quality-reports/:order_id — Signed URL & RBAC', () => {
     test('Pelanggan pemilik order dan Petugas berhasil mengambil laporan dengan signed URLs', async () => {
       const order = setupOrderInProgress();

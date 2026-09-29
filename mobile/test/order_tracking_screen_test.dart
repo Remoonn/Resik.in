@@ -222,5 +222,43 @@ void main() {
       expect(find.text('Lihat Laporan Mutu (Quality Report)'), findsOneWidget);
       expect(find.text('Laporan Hasil Pekerjaan Siap Ditinjau'), findsOneWidget);
     });
+
+    testWidgets('6. Menampilkan checklist real-time sesuai kategori pesanan (Kos)', (tester) async {
+      final kosOrder = OrderModel(
+        id: 'ord-test-kos',
+        orderCode: 'RSK-20260930-KOS',
+        serviceId: 'srv-kos-001',
+        serviceName: 'Pembersihan Kos',
+        serviceCategory: 'kos',
+        tanggalLayanan: '2026-09-30',
+        startTime: '10:00',
+        endTime: '12:00',
+        duration: 2,
+        alamatLengkap: 'Jl. Kaliurang KM 12',
+        patokanLokasi: 'Kos Melati',
+        luasArea: 'Kamar 3x4 m',
+        hargaSaatBooking: 75000.0,
+        totalBiaya: 75000.0,
+        statusPembayaran: 'Sudah Bayar',
+        statusPekerjaan: 'Sedang Dikerjakan',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OrderTrackingScreen(
+            orderId: kosOrder.id,
+            initialOrder: kosOrder,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Checklist Pembersihan Real-Time'), findsOneWidget);
+      expect(find.text('Kamar Tidur / Utama'), findsOneWidget);
+      expect(find.text('Kamar Mandi'), findsOneWidget);
+      expect(find.text('Area yang Termasuk Paket'), findsOneWidget);
+      // Memastikan item renovasi tidak muncul pada kos
+      expect(find.text('Pengikisan sisa semen kering di lantai'), findsNothing);
+    });
   });
 }

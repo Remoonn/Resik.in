@@ -128,6 +128,7 @@ class _QualityReportFormSheetState extends State<QualityReportFormSheet> {
       'completed_at': now.toIso8601String(),
       'role': 'cleaner',
       'cleaner_id': widget.order.cleanerId,
+      'service_category': widget.order.serviceCategory,
     };
 
     final result = await _service.submitReport(payload);

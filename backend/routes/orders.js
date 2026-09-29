@@ -211,6 +211,7 @@ router.post('/', async (req, res) => {
       order_code: generateOrderCode(body.tanggal_layanan),
       customer_id: body.customer_id || 'usr-cust-001',
       service_id: service.id,
+      service_kategori: service.kategori,
       cleaner_id: null,
       preferensi_petugas_id: body.preferensi_petugas_id || null,
       tanggal_layanan: body.tanggal_layanan,

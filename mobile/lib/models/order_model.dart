@@ -77,7 +77,7 @@ class OrderModel {
       orderCode: json['order_code']?.toString() ?? '',
       serviceId: json['service_id']?.toString() ?? '',
       serviceName: sName ?? json['nama_layanan']?.toString(),
-      serviceCategory: sCategory ?? json['kategori']?.toString(),
+      serviceCategory: sCategory ?? json['kategori']?.toString() ?? json['service_kategori']?.toString(),
       cleanerId: json['cleaner_id']?.toString(),
       cleaner: cleanerObj,
       tanggalLayanan: json['tanggal_layanan']?.toString() ?? '',
