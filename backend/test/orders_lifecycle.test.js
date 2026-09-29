@@ -158,7 +158,7 @@ describe('Sprint 3: Order Lifecycle, Assignment & Cancellation API Tests', () =>
       assert.equal(res.status, 400);
       const body = await res.json();
       assert.equal(body.success, false);
-      assert.equal(body.error, 'INVALID_STATUS_TRANSITION');
+      assert.equal(body.error, 'QUALITY_REPORT_REQUIRED');
     });
   });
 

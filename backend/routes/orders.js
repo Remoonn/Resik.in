@@ -340,6 +340,15 @@ router.patch('/:id/status', (req, res) => {
     'Sedang Dikerjakan': [] // Transisi ke Selesai WAJIB lewat Quality Report (Sprint 4)
   };
 
+  // Penguncian Gerbang Status Selesai (Mandatory Gate via Quality Report)
+  if (status_baru === 'Selesai') {
+    return res.status(400).json({
+      success: false,
+      message: 'Transisi ke status Selesai wajib melalui pengiriman Quality Report pada POST /api/quality-reports',
+      error: 'QUALITY_REPORT_REQUIRED'
+    });
+  }
+
   const allowedNext = validTransitions[order.status_pekerjaan] || [];
   if (!allowedNext.includes(status_baru)) {
     return res.status(400).json({
