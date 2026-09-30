@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:resik_in_mobile/models/order_model.dart';
 import 'package:resik_in_mobile/models/quality_report_model.dart';
+import 'package:resik_in_mobile/models/review_model.dart';
 import 'package:resik_in_mobile/screens/quality_report_screen.dart';
 
 void main() {
@@ -81,6 +82,48 @@ void main() {
       expect(find.textContaining('Waktu Mulai'), findsOneWidget);
       expect(find.textContaining('Waktu Selesai'), findsOneWidget);
       expect(find.textContaining('Diverifikasi Server'), findsOneWidget);
+    });
+
+    testWidgets('Menampilkan form ulasan pelanggan saat belum diulas pada QualityReportScreen', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QualityReportScreen(
+            order: testOrder,
+            initialReport: testReport,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Ulasan & Penilaian Pelanggan'), findsOneWidget);
+      expect(find.text('Beri Rating & Ulasan Petugas'), findsOneWidget);
+    });
+
+    testWidgets('Menampilkan ulasan terkirim pada QualityReportScreen jika sudah diulas', (tester) async {
+      final mockReview = ReviewModel(
+        id: 'rev-001',
+        orderId: testOrder.id,
+        customerId: 'usr-customer-001',
+        cleanerId: 'cln-001',
+        rating: 5,
+        catatanUlasan: 'Sangat rapi dan wangi!',
+        createdAt: DateTime.now(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QualityReportScreen(
+            order: testOrder,
+            initialReport: testReport,
+            initialReview: mockReview,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Ulasan & Penilaian Pelanggan'), findsOneWidget);
+      expect(find.text('Terkirim'), findsOneWidget);
+      expect(find.text('"Sangat rapi dan wangi!"'), findsOneWidget);
     });
   });
 }

@@ -2,19 +2,24 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../models/order_model.dart';
+import '../models/review_model.dart';
 import '../services/api_service.dart';
 import '../services/quality_report_service.dart';
+import '../services/review_service.dart';
 import '../widgets/operational_simulation_sheet.dart';
+import '../widgets/review_bottom_sheet.dart';
 import 'quality_report_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
   final OrderModel? initialOrder;
+  final ReviewModel? initialReview;
 
   const OrderTrackingScreen({
     super.key,
     required this.orderId,
     this.initialOrder,
+    this.initialReview,
   });
 
   @override
@@ -23,6 +28,7 @@ class OrderTrackingScreen extends StatefulWidget {
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTickerProviderStateMixin {
   OrderModel? _order;
+  ReviewModel? _existingReview;
   bool _isLoading = true;
   Timer? _timer;
   int _elapsedSeconds = 0;
@@ -74,10 +80,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
 
+    if (widget.initialReview != null) {
+      _existingReview = widget.initialReview;
+    }
+
     if (widget.initialOrder != null) {
       _order = widget.initialOrder;
       _isLoading = false;
       _initTimer();
+      if (_order!.statusPekerjaan == 'Selesai' && _existingReview == null) {
+        _fetchReview();
+      }
     } else {
       _fetchOrder();
     }
@@ -120,6 +133,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
       _isLoading = false;
     });
     _initTimer();
+    if (_order != null && _order!.statusPekerjaan == 'Selesai' && _existingReview == null) {
+      _fetchReview();
+    }
+  }
+
+  Future<void> _fetchReview() async {
+    try {
+      final rev = await ReviewService().getReviewByOrderId(widget.orderId);
+      if (mounted && rev != null) {
+        setState(() {
+          _existingReview = rev;
+        });
+      }
+    } catch (_) {}
   }
 
   String _formatTimer(int totalSecs) {
@@ -522,9 +549,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => QualityReportScreen(order: _order!),
+                  builder: (context) => QualityReportScreen(
+                    order: _order!,
+                    initialReview: _existingReview,
+                  ),
                 ),
-              );
+              ).then((_) {
+                if (_existingReview == null) {
+                  _fetchReview();
+                }
+              });
             },
             icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
             label: const Text(
@@ -543,6 +577,100 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
               elevation: 0,
             ),
           ),
+          const SizedBox(height: 12),
+          if (_existingReview == null)
+            OutlinedButton.icon(
+              onPressed: () async {
+                final submitted = await ReviewBottomSheet.show(
+                  context,
+                  orderId: _order!.id,
+                  cleanerName: _order!.cleaner?.nama ?? 'Petugas Mitra',
+                  serviceName: _order!.serviceName,
+                );
+                if (submitted == true) {
+                  _fetchReview();
+                }
+              },
+              icon: const Icon(Icons.star_rounded, color: Color(0xFFD97706), size: 18),
+              label: const Text(
+                'Beri Rating & Ulasan Petugas',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Color(0xFF1B5E20),
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF81C784), width: 1.5),
+                backgroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 46),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFC8E6C9)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Ulasan Anda (${_existingReview!.rating}/5)',
+                            style: const TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Color(0xFF1B5E20),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Terkirim',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_existingReview!.catatanUlasan != null &&
+                      _existingReview!.catatanUlasan!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '"${_existingReview!.catatanUlasan}"',
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Color(0xFF374151),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
         ],
       ),
     );

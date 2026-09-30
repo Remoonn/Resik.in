@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/order_model.dart';
 import '../models/quality_report_model.dart';
+import '../models/review_model.dart';
 import '../services/auth_service.dart';
 import '../services/quality_report_service.dart';
+import '../services/review_service.dart';
+import '../widgets/review_bottom_sheet.dart';
 
 /// Layar Laporan Mutu Hasil Kerja (Quality Report Screen)
 /// Dedicated Full-Screen Viewer untuk Pelanggan (FR-10 & BR-QRP)
@@ -12,12 +15,14 @@ class QualityReportScreen extends StatefulWidget {
   final OrderModel order;
   final QualityReportModel? initialReport;
   final QualityReportService? reportService;
+  final ReviewModel? initialReview;
 
   const QualityReportScreen({
     super.key,
     required this.order,
     this.initialReport,
     this.reportService,
+    this.initialReview,
   });
 
   @override
@@ -27,6 +32,7 @@ class QualityReportScreen extends StatefulWidget {
 class _QualityReportScreenState extends State<QualityReportScreen> {
   late QualityReportService _service;
   QualityReportModel? _report;
+  ReviewModel? _existingReview;
   bool _isLoading = true;
   String? _errorMessage;
   int _selectedPhotoTab = 0; // 0: Sebelum, 1: Sesudah
@@ -35,12 +41,28 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
   void initState() {
     super.initState();
     _service = widget.reportService ?? QualityReportService();
+    if (widget.initialReview != null) {
+      _existingReview = widget.initialReview;
+    } else {
+      _fetchReview();
+    }
     if (widget.initialReport != null) {
       _report = widget.initialReport;
       _isLoading = false;
     } else {
       _loadReport();
     }
+  }
+
+  Future<void> _fetchReview() async {
+    try {
+      final rev = await ReviewService().getReviewByOrderId(widget.order.id);
+      if (mounted && rev != null) {
+        setState(() {
+          _existingReview = rev;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadReport() async {
@@ -165,6 +187,10 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
 
           // 5. Timestamps Audit Trail
           _buildAuditTimestampsCard(report),
+          const SizedBox(height: 16),
+
+          // 6. Customer Rating & Review Card
+          _buildCustomerReviewCard(),
           const SizedBox(height: 24),
         ],
       ),
@@ -679,6 +705,116 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCustomerReviewCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.star_rounded, size: 20, color: Color(0xFFF59E0B)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Ulasan & Penilaian Pelanggan',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                ),
+              ),
+              if (_existingReview != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Terkirim',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_existingReview == null) ...[
+            const Text(
+              'Bagikan pengalaman Anda mengenai kualitas hasil pembersihan petugas mitra.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final submitted = await ReviewBottomSheet.show(
+                  context,
+                  orderId: widget.order.id,
+                  cleanerName: widget.order.cleaner?.nama ?? 'Petugas Mitra',
+                  serviceName: widget.order.serviceName,
+                );
+                if (submitted == true) {
+                  _fetchReview();
+                }
+              },
+              icon: const Icon(Icons.star_rate_rounded, size: 18),
+              label: const Text(
+                'Beri Rating & Ulasan Petugas',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00796B),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+            ),
+          ] else ...[
+            Row(
+              children: List.generate(5, (index) {
+                final starFilled = index < _existingReview!.rating;
+                return Icon(
+                  starFilled ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: starFilled ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
+                  size: 22,
+                );
+              }),
+            ),
+            if (_existingReview!.catatanUlasan != null &&
+                _existingReview!.catatanUlasan!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '"${_existingReview!.catatanUlasan}"',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }
