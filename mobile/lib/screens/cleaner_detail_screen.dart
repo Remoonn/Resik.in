@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import '../models/cleaner_model.dart';
+import '../models/review_model.dart';
+import '../services/review_service.dart';
 import '../theme/app_theme.dart';
 
-class CleanerDetailScreen extends StatelessWidget {
+class CleanerDetailScreen extends StatefulWidget {
   final CleanerModel cleaner;
   final bool isProvisionalRating;
   final String? matchBadge;
   final double? totalScore;
+  final ReviewService? reviewService;
+  final List<ReviewModel>? initialReviews;
 
   const CleanerDetailScreen({
     super.key,
@@ -14,7 +18,49 @@ class CleanerDetailScreen extends StatelessWidget {
     this.isProvisionalRating = false,
     this.matchBadge,
     this.totalScore,
+    this.reviewService,
+    this.initialReviews,
   });
+
+  @override
+  State<CleanerDetailScreen> createState() => _CleanerDetailScreenState();
+}
+
+class _CleanerDetailScreenState extends State<CleanerDetailScreen> {
+  late ReviewService _reviewService;
+  List<ReviewModel> _verifiedReviews = [];
+  bool _isLoadingReviews = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviewService = widget.reviewService ?? ReviewService();
+    if (widget.initialReviews != null) {
+      _verifiedReviews = widget.initialReviews!;
+    } else {
+      _fetchReviews();
+    }
+  }
+
+  Future<void> _fetchReviews() async {
+    setState(() => _isLoadingReviews = true);
+    try {
+      final reviews = await _reviewService.getCleanerReviews(widget.cleaner.id);
+      if (mounted) {
+        setState(() {
+          _verifiedReviews = reviews;
+          _isLoadingReviews = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingReviews = false);
+    }
+  }
+
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '-';
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+  }
 
   String _formatSkill(String skill) {
     switch (skill.toLowerCase()) {
@@ -39,6 +85,10 @@ class CleanerDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cleaner = widget.cleaner;
+    final isProvisionalRating = widget.isProvisionalRating;
+    final matchBadge = widget.matchBadge;
+    final totalScore = widget.totalScore;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -232,7 +282,7 @@ class CleanerDetailScreen extends StatelessWidget {
             ),
 
             // 3. Banner Transparansi Rating Awal (Jika Petugas Baru)
-            if (isProvisionalRating || cleaner.totalUlasan == 0)
+            if ((isProvisionalRating || cleaner.totalUlasan == 0) && cleaner.totalUlasan == 0 && _verifiedReviews.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
@@ -404,16 +454,18 @@ class CleanerDetailScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Ulasan Pelanggan (${cleaner.totalUlasan})',
+                        'Ulasan Pelanggan (${_verifiedReviews.isNotEmpty ? _verifiedReviews.length : cleaner.totalUlasan})',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
-                      if (cleaner.totalUlasan > 0)
+                      if (_verifiedReviews.isNotEmpty || cleaner.totalUlasan > 0)
                         Row(
                           children: [
                             const Icon(Icons.star, color: AppColors.warmAmber, size: 18),
                             const SizedBox(width: 4),
                             Text(
-                              cleaner.ratingRataRata.toStringAsFixed(1),
+                              cleaner.ratingRataRata > 0
+                                  ? cleaner.ratingRataRata.toStringAsFixed(1)
+                                  : '5.0',
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -421,7 +473,7 @@ class CleanerDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (cleaner.ulasan.isEmpty)
+                  if (_verifiedReviews.isEmpty && cleaner.ulasan.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
                       width: double.infinity,
@@ -436,6 +488,52 @@ class CleanerDetailScreen extends StatelessWidget {
                         ),
                       ),
                     )
+                  else if (_verifiedReviews.isNotEmpty)
+                    ..._verifiedReviews.map((rev) => Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.outline),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    rev.customerName ?? 'Pelanggan Resik.in',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  Row(
+                                    children: List.generate(
+                                      5,
+                                      (idx) => Icon(
+                                        idx < rev.rating ? Icons.star : Icons.star_border,
+                                        size: 16,
+                                        color: AppColors.warmAmber,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Ulasan Terverifikasi • ${_formatDate(rev.createdAt)}',
+                                style: const TextStyle(color: AppColors.slate500, fontSize: 11),
+                              ),
+                              if (rev.catatanUlasan != null && rev.catatanUlasan!.trim().isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  rev.catatanUlasan!,
+                                  style: const TextStyle(color: AppColors.slate900, fontSize: 13, height: 1.4),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ))
                   else
                     ...cleaner.ulasan.map((rev) => Container(
                           margin: const EdgeInsets.only(bottom: 12),
