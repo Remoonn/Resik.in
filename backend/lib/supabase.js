@@ -332,17 +332,41 @@ export async function getServices(all = false) {
   }
 }
 
-// 4. Persistence Helper untuk In-Memory Store (Menjaga data saat server di-restart)
+// 4. Helper untuk Agregasi Rating Petugas Otomatis
+export function updateCleanerRating(cleanerId) {
+  const reviews = inMemoryStore.reviews.filter(r => r.cleaner_id === cleanerId);
+  const cleaner = inMemoryStore.cleaners.find(c => c.id === cleanerId);
+  if (!cleaner) return null;
+
+  if (reviews.length === 0) {
+    cleaner.total_ulasan = 0;
+    return cleaner;
+  }
+
+  const sum = reviews.reduce((acc, curr) => acc + curr.rating, 0);
+  const avg = Math.round((sum / reviews.length) * 10) / 10;
+  cleaner.rating_rata_rata = avg;
+  cleaner.total_ulasan = reviews.length;
+  saveStateToDisk();
+  return cleaner;
+}
+
+// 5. Persistence Helper untuk In-Memory Store (Menjaga data saat server di-restart)
 export function saveStateToDisk() {
   try {
     const cleanOrders = inMemoryStore.orders.filter(o => !o.id.startsWith('ord-test-') && !o.id.startsWith('ord-qr-'));
     const cleanLogs = inMemoryStore.status_logs.filter(l => !l.order_id.startsWith('ord-test-') && !l.order_id.startsWith('ord-qr-'));
     const cleanReports = inMemoryStore.quality_reports.filter(r => !r.order_id.startsWith('ord-test-') && !r.order_id.startsWith('ord-qr-'));
+    const cleanReviews = (inMemoryStore.reviews || []).filter(r => 
+      !r.id?.startsWith('rev-test-') && 
+      !(r.order_id && (r.order_id.startsWith('ord-test-') || r.order_id.startsWith('ord-qr-')))
+    );
     const dataToSave = {
       orders: cleanOrders,
       status_logs: cleanLogs,
       quality_reports: cleanReports,
-      cleaners: inMemoryStore.cleaners
+      cleaners: inMemoryStore.cleaners,
+      reviews: cleanReviews
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
   } catch (err) {
@@ -367,7 +391,13 @@ export function loadStateFromDisk() {
       if (Array.isArray(loaded.cleaners) && loaded.cleaners.length > 0) {
         inMemoryStore.cleaners = loaded.cleaners;
       }
-      console.log(`[inMemoryStore] Berhasil memuat status tersimpan: ${inMemoryStore.orders.length} pesanan, ${inMemoryStore.quality_reports.length} laporan mutu.`);
+      if (Array.isArray(loaded.reviews) && loaded.reviews.length > 0) {
+        inMemoryStore.reviews = loaded.reviews.filter(r => 
+          !r.id?.startsWith('rev-test-') && 
+          !(r.order_id && (r.order_id.startsWith('ord-test-') || r.order_id.startsWith('ord-qr-')))
+        );
+      }
+      console.log(`[inMemoryStore] Berhasil memuat status tersimpan: ${inMemoryStore.orders.length} pesanan, ${inMemoryStore.quality_reports.length} laporan mutu, ${inMemoryStore.reviews.length} ulasan.`);
     }
   } catch (err) {
     console.warn('[inMemoryStore] Tidak dapat memuat cache, menggunakan nilai bawaan:', err.message);
