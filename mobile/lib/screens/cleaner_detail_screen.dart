@@ -473,7 +473,18 @@ class _CleanerDetailScreenState extends State<CleanerDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (_verifiedReviews.isEmpty && cleaner.ulasan.isEmpty)
+                  if (_isLoadingReviews && cleaner.ulasan.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        ),
+                      ),
+                    )
+                  else if (_verifiedReviews.isEmpty && cleaner.ulasan.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
                       width: double.infinity,
