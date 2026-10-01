@@ -687,5 +687,113 @@ export const db = {
       return `/api/quality-reports/${match[1]}/photo/${match[2]}`;
     }
     return `/api/quality-reports/photo?path=${encodeURIComponent(storagePath)}`;
+  },
+
+  // REVIEWS REPO
+  async createReview(reviewPayload) {
+    if (isLiveSupabase()) {
+      try {
+        const dbRow = {
+          id: (reviewPayload.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reviewPayload.id))
+            ? reviewPayload.id
+            : crypto.randomUUID(),
+          order_id: reviewPayload.order_id,
+          customer_id: sanitizeCustomerId(reviewPayload.customer_id),
+          cleaner_id: sanitizeCleanerId(reviewPayload.cleaner_id),
+          rating: Number(reviewPayload.rating),
+          ulasan: reviewPayload.catatan_ulasan || reviewPayload.ulasan || null,
+          created_at: reviewPayload.created_at || new Date().toISOString()
+        };
+        const { data, error } = await supabaseAdmin
+          .from('reviews')
+          .insert(dbRow)
+          .select()
+          .single();
+        if (!error && data) {
+          await this.updateCleanerRating(reviewPayload.cleaner_id);
+          return {
+            ...data,
+            order_id: data.order_id,
+            customer_id: data.customer_id,
+            cleaner_id: data.cleaner_id,
+            rating: data.rating,
+            catatan_ulasan: data.ulasan,
+            ulasan: data.ulasan,
+            customer_nama: reviewPayload.customer_nama || 'Pelanggan Resik.in'
+          };
+        }
+      } catch (err) {
+        console.warn('[db.createReview] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    const fullReview = {
+      id: reviewPayload.id || `rev-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      order_id: reviewPayload.order_id,
+      customer_id: reviewPayload.customer_id,
+      cleaner_id: reviewPayload.cleaner_id,
+      customer_nama: reviewPayload.customer_nama || 'Pelanggan Resik.in',
+      service_nama: reviewPayload.service_nama || null,
+      rating: Number(reviewPayload.rating),
+      catatan_ulasan: reviewPayload.catatan_ulasan || reviewPayload.ulasan || '',
+      ulasan: reviewPayload.catatan_ulasan || reviewPayload.ulasan || '',
+      created_at: reviewPayload.created_at || new Date().toISOString()
+    };
+    if (!inMemoryStore.reviews) {
+      inMemoryStore.reviews = [];
+    }
+    inMemoryStore.reviews.push(fullReview);
+    await this.updateCleanerRating(reviewPayload.cleaner_id);
+    saveStateToDisk();
+    return fullReview;
+  },
+
+  async getReviewByOrderId(orderId) {
+    if (!orderId) return null;
+    if (isLiveSupabase()) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('reviews')
+          .select('*')
+          .eq('order_id', orderId)
+          .maybeSingle();
+        if (!error && data) {
+          return {
+            ...data,
+            catatan_ulasan: data.ulasan,
+            ulasan: data.ulasan
+          };
+        }
+      } catch (err) {
+        console.warn('[db.getReviewByOrderId] Fallback ke in-memory:', err.message);
+      }
+    }
+    return (inMemoryStore.reviews || []).find(r => r.order_id === orderId) || null;
+  },
+
+  async getReviewsByCleanerId(cleanerId) {
+    if (!cleanerId) return [];
+    if (isLiveSupabase()) {
+      try {
+        const sanitizedId = sanitizeCleanerId(cleanerId);
+        if (sanitizedId) {
+          const { data, error } = await supabaseAdmin
+            .from('reviews')
+            .select('*')
+            .eq('cleaner_id', sanitizedId)
+            .order('created_at', { ascending: false });
+          if (!error && data) {
+            return data.map(r => ({
+              ...r,
+              catatan_ulasan: r.ulasan,
+              ulasan: r.ulasan
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('[db.getReviewsByCleanerId] Fallback ke in-memory:', err.message);
+      }
+    }
+    return (inMemoryStore.reviews || []).filter(r => r.cleaner_id === cleanerId);
   }
 };

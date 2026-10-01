@@ -1,5 +1,6 @@
 import express from 'express';
-import { inMemoryStore, updateCleanerRating, saveStateToDisk } from '../lib/supabase.js';
+import { inMemoryStore, saveStateToDisk } from '../lib/supabase.js';
+import { db } from '../lib/database.js';
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ router.post('/', async (req, res) => {
     }
 
     // Tahap 1: Validasi eksistensi order
-    const order = inMemoryStore.orders.find(o => o.id === order_id);
+    const order = await db.getOrderById(order_id);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -63,7 +64,7 @@ router.post('/', async (req, res) => {
     }
 
     // Tahap 5: Validasi anti-duplikasi ulasan (One review per order)
-    const existingReview = inMemoryStore.reviews.find(r => r.order_id === order_id);
+    const existingReview = await db.getReviewByOrderId(order_id);
     if (existingReview) {
       return res.status(409).json({
         success: false,
@@ -80,7 +81,7 @@ router.post('/', async (req, res) => {
     }
 
     const reviewId = `rev-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const newReview = {
+    const newReview = await db.createReview({
       id: reviewId,
       order_id: order.id,
       customer_id: order.customer_id,
@@ -89,12 +90,10 @@ router.post('/', async (req, res) => {
       rating: numRating,
       catatan_ulasan: catatan_ulasan ? String(catatan_ulasan).trim().slice(0, 300) : '',
       created_at: new Date().toISOString()
-    };
-
-    inMemoryStore.reviews.push(newReview);
+    });
 
     // Perbarui agregasi rating cleaner secara sinkron
-    const updatedCleaner = updateCleanerRating(order.cleaner_id);
+    const updatedCleaner = await db.updateCleanerRating(order.cleaner_id);
 
     return res.status(201).json({
       success: true,
@@ -125,9 +124,9 @@ router.post('/', async (req, res) => {
 });
 
 // 2. GET /api/reviews/order/:order_id — Cek Status Ulasan Pesanan
-router.get('/order/:order_id', (req, res) => {
+router.get('/order/:order_id', async (req, res) => {
   const { order_id } = req.params;
-  const review = inMemoryStore.reviews.find(r => r.order_id === order_id);
+  const review = await db.getReviewByOrderId(order_id);
   if (!review) {
     return res.status(404).json({
       success: false,
@@ -151,9 +150,9 @@ router.get('/order/:order_id', (req, res) => {
 });
 
 // 3. GET /api/reviews/cleaner/:cleaner_id — Riwayat Ulasan Publik Petugas
-router.get('/cleaner/:cleaner_id', (req, res) => {
+router.get('/cleaner/:cleaner_id', async (req, res) => {
   const { cleaner_id } = req.params;
-  const cleaner = inMemoryStore.cleaners.find(c => c.id === cleaner_id);
+  const cleaner = await db.getCleanerById(cleaner_id);
   if (!cleaner) {
     return res.status(404).json({
       success: false,
@@ -162,7 +161,7 @@ router.get('/cleaner/:cleaner_id', (req, res) => {
     });
   }
 
-  const cleanerReviews = inMemoryStore.reviews.filter(r => r.cleaner_id === cleaner_id);
+  const cleanerReviews = await db.getReviewsByCleanerId(cleaner_id);
   const mappedReviews = cleanerReviews.map(r => ({
     id: r.id,
     order_id: r.order_id,
