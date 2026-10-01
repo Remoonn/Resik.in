@@ -130,8 +130,9 @@ Tabel PostgreSQL di Supabase menggunakan konvensi *lower snake_case* yang dibata
 *Data Mapper* di repositori secara otomatis mentranslasikan nilai status saat operasi tulis (*write*) dan baca (*read*), sehingga kode UI Flutter tetap menggunakan format teks deskriptif yang ada.
 
 ### 5.2 Skema Tambahan Idempoten (Idempotent Schema Alignment)
-Untuk memastikan seluruh data operasional tersimpan sempurna di tabel `public.orders`, skrip migrasi memastikan kolom-kolom berikut tersedia:
+Untuk memastikan seluruh data operasional tersimpan sempurna di database Supabase Cloud, skrip inisialisasi mengeksekusi migrasi idempoten berikut:
 ```sql
+-- Orders alignment
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS duration INT DEFAULT 2;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS end_time TIME;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS harga_saat_booking NUMERIC(12, 2);
@@ -140,7 +141,17 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS cancelled_by UUID;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+
+-- Quality Reports alignment
+ALTER TABLE public.quality_reports ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+ALTER TABLE public.quality_reports ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 ```
+
+### 5.3 UUID Sanitizer & Demo Account Fallback Resolver
+* **Google OAuth Users:** Nilai `customer_id` berupa UUID v4 resmi dari `auth.users` yang otomatis memiliki profil di `public.profiles`. Disimpan langsung ke PostgreSQL.
+* **Demo / Guest Accounts (`usr-customer-001`):** PostgreSQL bertipe data ketat `UUID` dan akan menolak string non-UUID dengan galat `invalid input syntax for type uuid`. *Data Mapper* memeriksa format menggunakan regex UUID:
+  * Jika `customer_id` bukan format UUID valid (seperti akun demo), mapper menormalkannya menjadi `null` atau UUID khusus demo yang aman, sehingga operasi database tetap sukses dan tidak terjadi galat tipe data SQL.
+* **Cleaner ID Synchronization:** Endpoint `GET /api/cleaners` dalam mode Supabase Cloud mengembalikan UUID resmi dari tabel `public.cleaners` (contoh: `1ef35bc3-c1cb-4ee4...`), sehingga penugasan petugas (`cleaner_id`) selalu valid terhadap *Foreign Key* database.
 
 ---
 
