@@ -88,8 +88,9 @@ describe('Sprint 2: Cleaners Master Data & Smart Matching API Tests', () => {
   });
 
   it('TC-CLN-06: GET /api/cleaners/recommendations mengembalikan daftar kandidat terurut deterministik (200 OK)', async () => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
     const res = await fetch(
-      `${baseUrl}/api/cleaners/recommendations?service_id=${sampleServiceId}&tanggal=2026-09-30&start_time=09:00&duration=2`
+      `${baseUrl}/api/cleaners/recommendations?service_id=${sampleServiceId}&tanggal=${tomorrow}&start_time=09:00&duration=2`
     );
     assert.equal(res.status, 200);
 
@@ -108,13 +109,14 @@ describe('Sprint 2: Cleaners Master Data & Smart Matching API Tests', () => {
   });
 
   it('TC-CLN-07: POST /api/orders berhasil menyimpan preferensi_petugas_id (201 Created)', async () => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
     const orderPayload = {
       service_id: sampleServiceId,
       preferensi_petugas_id: 'cln-001',
       alamat_lengkap: 'Jl. Gejayan No. 45, Condongcatur, Sleman, DIY',
       patokan_lokasi: 'Samping Apotek K-24',
       luas_area: 'Tipe 45',
-      tanggal_layanan: '2026-09-30',
+      tanggal_layanan: tomorrow,
       start_time: '10:00',
       duration: 2
     };

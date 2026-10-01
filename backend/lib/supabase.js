@@ -12,9 +12,54 @@ const STATE_FILE = path.join(__dirname, '..', '.in_memory_state.json');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-// 1. Inisialisasi Klien Supabase Resmi
+// 1. Inisialisasi Klien Supabase Resmi (Anon & Service Role Admin)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+export const supabaseAdmin = createClient(
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+
+export function isLiveSupabase() {
+  if (process.env.NODE_ENV === 'test') return false;
+  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+}
+
+export async function ensureStorageBucket() {
+  if (!isLiveSupabase()) return false;
+  try {
+    const { data: buckets, error } = await supabaseAdmin.storage.listBuckets();
+    if (error) {
+      console.warn('[SupabaseStorage] Gagal mengambil daftar bucket:', error.message);
+      return false;
+    }
+    const exists = (buckets || []).some(b => b.name === 'quality-reports');
+    if (!exists) {
+      const { error: createErr } = await supabaseAdmin.storage.createBucket('quality-reports', {
+        public: false,
+        fileSizeLimit: 5242880,
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
+      });
+      if (createErr) {
+        console.warn('[SupabaseStorage] Gagal membuat bucket quality-reports:', createErr.message);
+        return false;
+      }
+      console.log('[SupabaseStorage] Bucket quality-reports berhasil dibuat secara otomatis.');
+    }
+    return true;
+  } catch (err) {
+    console.warn('[SupabaseStorage] Warning ensureStorageBucket:', err.message);
+    return false;
+  }
+}
 
 // 2. In-Memory Seed Data (Sesuai database/schema.sql)
 export const inMemoryStore = {

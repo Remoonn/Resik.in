@@ -37,7 +37,7 @@ describe('Sprint 1: Core Booking & Payment API Tests', () => {
     patokan_lokasi: 'Depan Warung Madura cat biru',
     luas_area: 'Tipe 36',
     catatan_khusus: 'Tolong bersihkan debu di plafon ruang tamu',
-    tanggal_layanan: '2026-09-30',
+    tanggal_layanan: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     start_time: '09:00',
     duration: 2
   };
