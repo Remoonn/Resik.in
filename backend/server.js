@@ -70,13 +70,19 @@ app.use((err, req, res, next) => {
 });
 
 import { fileURLToPath } from 'url';
+import { isLiveSupabase, ensureStorageBucket } from './lib/supabase.js';
 
 // 6. Start Server hanya jika file dieksekusi langsung (bukan saat di-import oleh test)
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`[Resik.in] REST API Server running on port ${PORT}`);
     console.log(`[Resik.in] Health Check: http://localhost:${PORT}/api/health`);
     console.log(`[Resik.in] Services: http://localhost:${PORT}/api/services`);
+    const liveMode = isLiveSupabase();
+    console.log(`[Resik.in] Database Mode: ${liveMode ? '🟢 LIVE SUPABASE CLOUD (PostgreSQL & Storage)' : '🟡 IN-MEMORY STORE FALLBACK (Safe Offline/Demo)'}`);
+    if (liveMode) {
+      await ensureStorageBucket();
+    }
   });
 }
 
