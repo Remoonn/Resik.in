@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import { inMemoryStore, supabase, getServices } from '../lib/supabase.js';
+import { inMemoryStore, getServices } from '../lib/supabase.js';
 import { getRecommendations } from '../lib/matching.js';
+import { db } from '../lib/database.js';
 
 const router = Router();
 
 // GET /api/cleaners — Mendapatkan daftar petugas kebersihan aktif
 router.get('/', async (req, res, next) => {
   try {
-    const { data, error } = await supabase.from('cleaners').select('*');
-    const cleaners = (error || !data || data.length === 0) ? inMemoryStore.cleaners : data;
+    const cleaners = await db.getCleaners();
 
     return res.status(200).json({
       success: true,
@@ -75,7 +75,7 @@ router.get('/recommendations', async (req, res, next) => {
     }
 
     // 6. Ambil Data Petugas & Pesanan Aktif
-    const cleaners = inMemoryStore.cleaners;
+    const cleaners = await db.getCleaners();
     const existingOrders = inMemoryStore.orders;
 
     // 7. Jalankan Algoritma Smart Matching
@@ -102,7 +102,7 @@ router.get('/recommendations', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const cleaner = inMemoryStore.cleaners.find(c => c.id === id);
+    const cleaner = await db.getCleanerById(id);
 
     if (!cleaner) {
       return res.status(404).json({
