@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { inMemoryStore, supabase, getServices, saveStateToDisk } from '../lib/supabase.js';
 import { CHECKLIST_TEMPLATES } from '../lib/checklist-templates.js';
+import { db } from '../lib/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,7 +35,7 @@ router.post('/', async (req, res) => {
   }
 
   // 1. Temukan Order
-  const order = inMemoryStore.orders.find(o => o.id === order_id);
+  const order = await db.getOrderById(order_id);
   if (!order) {
     return res.status(404).json({
       success: false,
@@ -133,9 +134,9 @@ router.post('/', async (req, res) => {
     });
   }
 
-  // 7. Simpan Laporan Mutu ke inMemoryStore
+  // 7. Simpan Laporan Mutu via Database Repository
   const submittedAt = new Date().toISOString();
-  const newReport = {
+  const reportPayload = {
     id: crypto.randomUUID(),
     order_id: order.id,
     cleaner_id: order.cleaner_id,
@@ -147,13 +148,10 @@ router.post('/', async (req, res) => {
     completed_at: new Date(completed_at).toISOString(),
     submitted_at: submittedAt
   };
-  inMemoryStore.quality_reports.push(newReport);
+
+  const savedReport = await db.saveQualityReport(reportPayload);
 
   // Simpan data biner foto jika dikirim dalam format base64
-  if (!inMemoryStore.quality_report_photos) {
-    inMemoryStore.quality_report_photos = {};
-  }
-
   const parseBase64 = (dataUriOrBase64) => {
     if (!dataUriOrBase64 || typeof dataUriOrBase64 !== 'string') return null;
     const matches = dataUriOrBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -172,45 +170,18 @@ router.post('/', async (req, res) => {
   const beforePhoto = parseBase64(req.body.foto_before_data);
   const afterPhoto = parseBase64(req.body.foto_after_data);
 
-  if (beforePhoto || afterPhoto) {
-    const photoEntry = {
-      before: beforePhoto,
-      after: afterPhoto
-    };
-    inMemoryStore.quality_report_photos[order.id] = photoEntry;
-    if (order.order_code) {
-      inMemoryStore.quality_report_photos[order.order_code] = photoEntry;
-    }
+  if (beforePhoto) {
+    await db.uploadQualityReportPhoto(order.id, 'before', beforePhoto.buffer, beforePhoto.contentType);
   }
-
-  // 8. Mutasi Status Pesanan Menjadi 'Selesai'
-  order.status_pekerjaan = 'Selesai';
-  inMemoryStore.status_logs.push({
-    id: crypto.randomUUID(),
-    order_id: order.id,
-    status_sebelumnya: 'Sedang Dikerjakan',
-    status_baru: 'Selesai',
-    diubah_oleh: order.cleaner_id || 'cleaner',
-    catatan: 'Laporan mutu pekerjaan berhasil diverifikasi dan diserahkan',
-    created_at: submittedAt
-  });
-
-  // 9. Pemulihan Metrik Petugas Kebersihan
-  if (order.cleaner_id) {
-    const cleaner = inMemoryStore.cleaners.find(c => c.id === order.cleaner_id);
-    if (cleaner) {
-      cleaner.status_operasional = 'Aktif';
-      cleaner.total_pekerjaan = (cleaner.total_pekerjaan || 0) + 1;
-    }
+  if (afterPhoto) {
+    await db.uploadQualityReportPhoto(order.id, 'after', afterPhoto.buffer, afterPhoto.contentType);
   }
-
-  saveStateToDisk();
 
   return res.status(201).json({
     success: true,
     message: 'Quality Report berhasil disimpan dan pesanan dinyatakan Selesai',
     data: {
-      report_id: newReport.id,
+      report_id: savedReport.id,
       order_id: order.id,
       status_pekerjaan: 'Selesai',
       submitted_at: submittedAt
@@ -273,13 +244,13 @@ router.get('/:order_id', async (req, res) => {
   }
 
   // 3. Temukan Rekaman Quality Report (Berdasarkan ID pesanan atau order_id URL)
-  let report = inMemoryStore.quality_reports.find(r => r.order_id === order.id || r.order_id === order_id);
+  let report = await db.getQualityReportByOrderId(order.id || order_id);
   if (!report && order.status_pekerjaan === 'Selesai') {
     // Resilient Fallback: Jika pesanan sudah Selesai tapi laporan belum ada di memori
     const rawKategori = (order.service_kategori || 'kos').toLowerCase();
     const kategori = (rawKategori === 'pasca_renovasi' || rawKategori === 'renovasi') ? 'renovasi' : rawKategori;
     const expectedAreas = CHECKLIST_TEMPLATES[kategori] || CHECKLIST_TEMPLATES.kos;
-    report = {
+    report = await db.saveQualityReport({
       id: crypto.randomUUID(),
       order_id: order.id,
       cleaner_id: order.cleaner_id || 'cln-004',
@@ -290,9 +261,7 @@ router.get('/:order_id', async (req, res) => {
       started_at: order.started_at || order.created_at,
       completed_at: order.completed_at || new Date().toISOString(),
       submitted_at: order.completed_at || new Date().toISOString()
-    };
-    inMemoryStore.quality_reports.push(report);
-    saveStateToDisk();
+    });
   }
 
   if (!report) {
@@ -304,39 +273,23 @@ router.get('/:order_id', async (req, res) => {
   }
 
   // 4. Buat Signed URLs (30 Menit = 1800 Detik)
-  let fotoBeforeSignedUrl = '';
-  let fotoAfterSignedUrl = '';
-
-  try {
-    if (supabase && supabase.storage) {
-      const { data: bData } = await supabase.storage
-        .from('quality-reports')
-        .createSignedUrl(report.foto_before_url, 1800);
-      if (bData && bData.signedUrl) fotoBeforeSignedUrl = bData.signedUrl;
-
-      const { data: aData } = await supabase.storage
-        .from('quality-reports')
-        .createSignedUrl(report.foto_after_url, 1800);
-      if (aData && aData.signedUrl) fotoAfterSignedUrl = aData.signedUrl;
-    }
-  } catch (err) {
-    // Mode fallback
-  }
+  let fotoBeforeSignedUrl = await db.getQualityReportSignedUrl(report.foto_before_url);
+  let fotoAfterSignedUrl = await db.getQualityReportSignedUrl(report.foto_after_url);
 
   // Fallback adaptif untuk mode mock/testing atau lokal device
   const host = req.get('host') || 'localhost:3000';
   const protocol = req.protocol || 'http';
   const baseUrl = `${protocol}://${host}/api`;
 
-  if (!fotoBeforeSignedUrl) {
+  if (!fotoBeforeSignedUrl || !fotoBeforeSignedUrl.startsWith('http')) {
     fotoBeforeSignedUrl = `${baseUrl}/quality-reports/${order.id}/photo/before?token=signed-${Date.now()}`;
   }
-  if (!fotoAfterSignedUrl) {
+  if (!fotoAfterSignedUrl || !fotoAfterSignedUrl.startsWith('http')) {
     fotoAfterSignedUrl = `${baseUrl}/quality-reports/${order.id}/photo/after?token=signed-${Date.now()}`;
   }
 
   // 5. Temukan Nama Petugas
-  const cleaner = inMemoryStore.cleaners.find(c => c.id === order.cleaner_id);
+  const cleaner = order.cleaner_id ? await db.getCleanerById(order.cleaner_id) : null;
 
   return res.status(200).json({
     success: true,

@@ -1,6 +1,5 @@
-// backend/lib/database.js
 import crypto from 'crypto';
-import { supabaseAdmin, inMemoryStore, isLiveSupabase, saveStateToDisk, getServices } from './supabase.js';
+import { supabaseAdmin, inMemoryStore, isLiveSupabase, saveStateToDisk, getServices, ensureStorageBucket } from './supabase.js';
 import {
   orderToDb,
   orderToApi,
@@ -473,5 +472,220 @@ export const db = {
     });
     saveStateToDisk();
     return order;
+  },
+
+  // QUALITY REPORTS REPO & STORAGE
+  async saveQualityReport(reportPayload) {
+    const submittedAt = reportPayload.submitted_at || reportPayload.waktu_submit || new Date().toISOString();
+    const id = reportPayload.id || crypto.randomUUID();
+
+    if (isLiveSupabase()) {
+      try {
+        const dbRow = {
+          id,
+          order_id: reportPayload.order_id,
+          cleaner_id: sanitizeCleanerId(reportPayload.cleaner_id),
+          checklist_area: reportPayload.checklist_area || [],
+          foto_before_url: reportPayload.foto_before_url,
+          foto_after_url: reportPayload.foto_after_url,
+          catatan_petugas: reportPayload.catatan_petugas ? reportPayload.catatan_petugas.trim() : null,
+          waktu_submit: submittedAt
+        };
+        const { data, error } = await supabaseAdmin
+          .from('quality_reports')
+          .upsert(dbRow, { onConflict: 'order_id' })
+          .select()
+          .maybeSingle();
+
+        if (!error && data) {
+          await this.updateOrderStatus(reportPayload.order_id, 'Selesai', {
+            updated_by: reportPayload.cleaner_id,
+            catatan: 'Laporan mutu pekerjaan berhasil diverifikasi dan diserahkan'
+          });
+
+          if (reportPayload.cleaner_id) {
+            const { data: cleaner } = await supabaseAdmin
+              .from('cleaners')
+              .select('total_pekerjaan')
+              .eq('id', reportPayload.cleaner_id)
+              .maybeSingle();
+            if (cleaner) {
+              await supabaseAdmin
+                .from('cleaners')
+                .update({
+                  status_operasional: 'aktif',
+                  total_pekerjaan: (cleaner.total_pekerjaan || 0) + 1
+                })
+                .eq('id', reportPayload.cleaner_id);
+            }
+          }
+
+          return {
+            ...data,
+            order_id: data.order_id,
+            cleaner_id: data.cleaner_id,
+            checklist_area: data.checklist_area,
+            foto_before_url: data.foto_before_url,
+            foto_after_url: data.foto_after_url,
+            catatan_petugas: data.catatan_petugas,
+            started_at: reportPayload.started_at,
+            completed_at: reportPayload.completed_at,
+            submitted_at: data.waktu_submit
+          };
+        }
+      } catch (err) {
+        console.warn('[db.saveQualityReport] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    // In-memory fallback
+    const fullReport = {
+      id,
+      order_id: reportPayload.order_id,
+      cleaner_id: reportPayload.cleaner_id,
+      checklist_area: reportPayload.checklist_area || [],
+      foto_before_url: reportPayload.foto_before_url,
+      foto_after_url: reportPayload.foto_after_url,
+      catatan_petugas: reportPayload.catatan_petugas ? reportPayload.catatan_petugas.trim() : null,
+      started_at: reportPayload.started_at,
+      completed_at: reportPayload.completed_at,
+      submitted_at: submittedAt
+    };
+
+    if (!inMemoryStore.quality_reports) {
+      inMemoryStore.quality_reports = [];
+    }
+    const existingIndex = inMemoryStore.quality_reports.findIndex(r => r.order_id === reportPayload.order_id);
+    if (existingIndex >= 0) {
+      inMemoryStore.quality_reports[existingIndex] = fullReport;
+    } else {
+      inMemoryStore.quality_reports.push(fullReport);
+    }
+
+    const order = inMemoryStore.orders.find(o => o.id === reportPayload.order_id);
+    if (order) {
+      order.status_pekerjaan = 'Selesai';
+      inMemoryStore.status_logs.push({
+        id: crypto.randomUUID(),
+        order_id: order.id,
+        status_sebelumnya: 'Sedang Dikerjakan',
+        status_baru: 'Selesai',
+        diubah_oleh: reportPayload.cleaner_id || 'cleaner',
+        catatan: 'Laporan mutu pekerjaan berhasil diverifikasi dan diserahkan',
+        created_at: submittedAt
+      });
+    }
+
+    if (reportPayload.cleaner_id) {
+      const cleaner = inMemoryStore.cleaners.find(c => c.id === reportPayload.cleaner_id);
+      if (cleaner) {
+        cleaner.status_operasional = 'Aktif';
+        cleaner.total_pekerjaan = (cleaner.total_pekerjaan || 0) + 1;
+      }
+    }
+
+    saveStateToDisk();
+    return fullReport;
+  },
+
+  async getQualityReportByOrderId(orderId) {
+    if (!orderId) return null;
+    if (isLiveSupabase()) {
+      try {
+        let { data, error } = await supabaseAdmin
+          .from('quality_reports')
+          .select('*')
+          .eq('order_id', orderId)
+          .maybeSingle();
+
+        if (!data && !error) {
+          const { data: order } = await supabaseAdmin
+            .from('orders')
+            .select('id')
+            .eq('order_code', orderId)
+            .maybeSingle();
+          if (order) {
+            const res = await supabaseAdmin
+              .from('quality_reports')
+              .select('*')
+              .eq('order_id', order.id)
+              .maybeSingle();
+            data = res.data;
+          }
+        }
+
+        if (data) {
+          return {
+            ...data,
+            order_id: data.order_id,
+            cleaner_id: data.cleaner_id,
+            checklist_area: data.checklist_area,
+            foto_before_url: data.foto_before_url,
+            foto_after_url: data.foto_after_url,
+            catatan_petugas: data.catatan_petugas,
+            submitted_at: data.waktu_submit
+          };
+        }
+      } catch (err) {
+        console.warn('[db.getQualityReportByOrderId] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    const order = inMemoryStore.orders.find(o => o.id === orderId || o.order_code === orderId);
+    const targetOrderId = order ? order.id : orderId;
+    return (inMemoryStore.quality_reports || []).find(r => r.order_id === targetOrderId) || null;
+  },
+
+  async uploadQualityReportPhoto(orderId, type, buffer, mimeType = 'image/jpeg') {
+    const storagePath = `orders/${orderId}/${type}.jpg`;
+    if (isLiveSupabase()) {
+      try {
+        await ensureStorageBucket();
+        const { error } = await supabaseAdmin.storage
+          .from('quality-reports')
+          .upload(storagePath, buffer, {
+            contentType: mimeType,
+            upsert: true
+          });
+        if (!error) return storagePath;
+        console.warn('[db.uploadQualityReportPhoto] Supabase storage upload error:', error.message);
+      } catch (err) {
+        console.warn('[db.uploadQualityReportPhoto] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    if (!inMemoryStore.quality_report_photos) {
+      inMemoryStore.quality_report_photos = {};
+    }
+    if (!inMemoryStore.quality_report_photos[orderId]) {
+      inMemoryStore.quality_report_photos[orderId] = {};
+    }
+    inMemoryStore.quality_report_photos[orderId][type] = {
+      contentType: mimeType,
+      buffer
+    };
+    return storagePath;
+  },
+
+  async getQualityReportSignedUrl(storagePath) {
+    if (!storagePath) return null;
+    if (isLiveSupabase()) {
+      try {
+        const { data, error } = await supabaseAdmin.storage
+          .from('quality-reports')
+          .createSignedUrl(storagePath, 3600);
+        if (!error && data && data.signedUrl) {
+          return data.signedUrl;
+        }
+      } catch (err) {
+        console.warn('[db.getQualityReportSignedUrl] Fallback URL:', err.message);
+      }
+    }
+
+    const match = storagePath.match(/^orders\/([^\/]+)\/([^\.]+)/);
+    if (match) {
+      return `/api/quality-reports/${match[1]}/photo/${match[2]}`;
+    }
+    return `/api/quality-reports/photo?path=${encodeURIComponent(storagePath)}`;
   }
 };
