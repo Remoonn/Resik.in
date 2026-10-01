@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import { inMemoryStore, getServices, saveStateToDisk } from '../lib/supabase.js';
+import { db } from '../lib/database.js';
 
 const router = Router();
 
@@ -38,30 +39,19 @@ function generateOrderCode(tanggalLayanan) {
 
 // GET /api/orders — Mengambil daftar pesanan
 router.get('/', async (req, res) => {
-  const { data: services } = await getServices(true);
-  const enrichedOrders = inMemoryStore.orders.map(order => {
-    const service = (services || []).find(s => s.id === order.service_id);
-    return {
-      ...order,
-      service: service ? {
-        id: service.id,
-        nama_layanan: service.nama_layanan,
-        kategori: service.kategori
-      } : null
-    };
-  });
+  const orders = await db.getOrders();
 
   return res.status(200).json({
     success: true,
     message: 'Daftar pesanan berhasil diambil',
-    data: enrichedOrders
+    data: orders
   });
 });
 
 // GET /api/orders/:id — Detail lengkap pesanan
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
-  const order = inMemoryStore.orders.find(o => o.id === id);
+  const order = await db.getOrderById(id);
 
   if (!order) {
     return res.status(404).json({
@@ -71,32 +61,10 @@ router.get('/:id', async (req, res) => {
     });
   }
 
-  const { data: services } = await getServices(true);
-  const service = (services || []).find(s => s.id === order.service_id);
-  const cleaner = order.cleaner_id ? inMemoryStore.cleaners.find(c => c.id === order.cleaner_id) : null;
-  const logs = inMemoryStore.status_logs.filter(l => l.order_id === order.id);
-
   return res.status(200).json({
     success: true,
     message: 'Detail pesanan berhasil diambil',
-    data: {
-      ...order,
-      service: service ? {
-        id: service.id,
-        nama_layanan: service.nama_layanan,
-        kategori: service.kategori,
-        durasi_estimasi: service.durasi_estimasi
-      } : null,
-      cleaner: cleaner ? {
-        id: cleaner.id,
-        nama: cleaner.nama,
-        nomor_kontak: cleaner.nomor_kontak,
-        foto_url: cleaner.foto_url,
-        rating_rata_rata: cleaner.rating_rata_rata,
-        total_pekerjaan: cleaner.total_pekerjaan
-      } : null,
-      status_logs: logs
-    }
+    data: order
   });
 });
 
@@ -233,33 +201,19 @@ router.post('/', async (req, res) => {
       created_at: new Date().toISOString()
     };
 
-    // Simpan ke inMemoryStore
-    inMemoryStore.orders.push(newOrder);
-
-    // Catat Status Log Perdana
-    inMemoryStore.status_logs.push({
-      id: crypto.randomUUID(),
-      order_id: newOrder.id,
-      status_sebelumnya: null,
-      status_baru: 'Menunggu Konfirmasi',
-      diubah_oleh: newOrder.customer_id,
-      catatan: 'Pesanan baru dibuat, menunggu pembayaran pelanggan',
-      created_at: newOrder.created_at
-    });
-
-    saveStateToDisk();
+    const createdOrder = await db.createOrder(newOrder);
 
     return res.status(201).json({
       success: true,
       message: 'Pesanan berhasil dibuat, silakan selesaikan pembayaran',
       data: {
-        id: newOrder.id,
-        order_code: newOrder.order_code,
-        harga_saat_booking: newOrder.harga_saat_booking,
-        total_biaya: newOrder.total_biaya,
-        status_pembayaran: newOrder.status_pembayaran,
-        status_pekerjaan: newOrder.status_pekerjaan,
-        payment_timestamp: newOrder.payment_timestamp
+        id: createdOrder.id,
+        order_code: createdOrder.order_code,
+        harga_saat_booking: createdOrder.harga_saat_booking,
+        total_biaya: createdOrder.total_biaya,
+        status_pembayaran: createdOrder.status_pembayaran,
+        status_pekerjaan: createdOrder.status_pekerjaan,
+        payment_timestamp: createdOrder.payment_timestamp
       }
     });
   } catch (error) {
@@ -272,9 +226,9 @@ router.post('/', async (req, res) => {
 });
 
 // POST /api/orders/:id/pay — Simulasi Pembayaran Server-Authoritative
-router.post('/:id/pay', (req, res) => {
+router.post('/:id/pay', async (req, res) => {
   const { id } = req.params;
-  const order = inMemoryStore.orders.find(o => o.id === id);
+  const order = await db.getOrderById(id);
 
   if (!order) {
     return res.status(404).json({
@@ -292,40 +246,24 @@ router.post('/:id/pay', (req, res) => {
     });
   }
 
-  // Update status pembayaran dan catat timestamp server
-  const now = new Date().toISOString();
-  order.status_pembayaran = 'Sudah Bayar';
-  order.payment_timestamp = now;
-
-  // Catat audit ke status_logs
-  inMemoryStore.status_logs.push({
-    id: crypto.randomUUID(),
-    order_id: order.id,
-    status_sebelumnya: 'Menunggu Konfirmasi',
-    status_baru: 'Menunggu Konfirmasi',
-    diubah_oleh: order.customer_id,
-    catatan: 'Simulasi pembayaran diverifikasi server: status pembayaran berubah menjadi Sudah Bayar',
-    created_at: now
-  });
-
-  saveStateToDisk();
+  const updated = await db.updateOrderPayment(id, { customer_id: order.customer_id });
 
   return res.status(200).json({
     success: true,
     message: 'Simulasi pembayaran berhasil diverifikasi',
     data: {
-      id: order.id,
-      status_pembayaran: order.status_pembayaran,
-      payment_timestamp: order.payment_timestamp
+      id: updated.id,
+      status_pembayaran: updated.status_pembayaran,
+      payment_timestamp: updated.payment_timestamp
     }
   });
 });
 
 // PATCH /api/orders/:id/status — Transisi status sekuensial mutlak
-router.patch('/:id/status', (req, res) => {
+router.patch('/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status_baru, role } = req.body;
-  const order = inMemoryStore.orders.find(o => o.id === id);
+  const order = await db.getOrderById(id);
 
   if (!order) {
     return res.status(404).json({
@@ -374,41 +312,27 @@ router.patch('/:id/status', (req, res) => {
     }
   }
 
-  const prevStatus = order.status_pekerjaan;
-  order.status_pekerjaan = status_baru;
-  if (status_baru === 'Sedang Dikerjakan') {
-    order.started_at = new Date().toISOString();
-  }
-
-  // Catat ke status_logs
-  inMemoryStore.status_logs.push({
-    id: crypto.randomUUID(),
-    order_id: order.id,
-    status_sebelumnya: prevStatus,
-    status_baru: status_baru,
-    diubah_oleh: role || 'admin',
-    catatan: `Status pekerjaan diperbarui menjadi ${status_baru}`,
-    created_at: new Date().toISOString()
+  const updated = await db.updateOrderStatus(id, status_baru, {
+    prevStatus: order.status_pekerjaan,
+    updated_by: role || 'admin'
   });
-
-  saveStateToDisk();
 
   return res.status(200).json({
     success: true,
     message: 'Status pekerjaan berhasil diperbarui',
     data: {
-      id: order.id,
-      status_pekerjaan: order.status_pekerjaan,
-      started_at: order.started_at || null
+      id: updated.id,
+      status_pekerjaan: updated.status_pekerjaan,
+      started_at: updated.started_at || null
     }
   });
 });
 
 // POST /api/orders/:id/assign — Penugasan petugas hibrida dengan anti-double booking
-router.post('/:id/assign', (req, res) => {
+router.post('/:id/assign', async (req, res) => {
   const { id } = req.params;
   const { cleaner_id, role } = req.body;
-  const order = inMemoryStore.orders.find(o => o.id === id);
+  const order = await db.getOrderById(id);
 
   if (!order) {
     return res.status(404).json({
@@ -435,7 +359,7 @@ router.post('/:id/assign', (req, res) => {
     });
   }
 
-  const cleaner = inMemoryStore.cleaners.find(c => c.id === cleaner_id);
+  const cleaner = await db.getCleanerById(cleaner_id);
   if (!cleaner || cleaner.status_operasional !== 'Aktif') {
     return res.status(400).json({
       success: false,
@@ -445,7 +369,8 @@ router.post('/:id/assign', (req, res) => {
   }
 
   // Pemeriksaan Bentrok Jadwal (+ Buffer 30 Menit)
-  const existingCleanerOrders = inMemoryStore.orders.filter(o =>
+  const allOrders = await db.getOrders();
+  const existingCleanerOrders = allOrders.filter(o =>
     o.cleaner_id === cleaner_id &&
     o.tanggal_layanan === order.tanggal_layanan &&
     o.id !== order.id &&
@@ -465,38 +390,27 @@ router.post('/:id/assign', (req, res) => {
     });
   }
 
-  const prevStatus = order.status_pekerjaan;
-  order.cleaner_id = cleaner_id;
-  order.status_pekerjaan = 'Petugas Ditugaskan';
-
-  inMemoryStore.status_logs.push({
-    id: crypto.randomUUID(),
-    order_id: order.id,
-    status_sebelumnya: prevStatus,
-    status_baru: 'Petugas Ditugaskan',
-    diubah_oleh: role || 'admin',
-    catatan: `Petugas ${cleaner.nama} (${cleaner.id}) berhasil ditugaskan`,
-    created_at: new Date().toISOString()
+  const updated = await db.assignCleaner(id, cleaner_id, {
+    assigned_by: role || 'admin',
+    catatan: `Petugas ${cleaner.nama} (${cleaner.id}) berhasil ditugaskan`
   });
-
-  saveStateToDisk();
 
   return res.status(200).json({
     success: true,
     message: 'Petugas berhasil ditugaskan ke pesanan',
     data: {
-      id: order.id,
-      cleaner_id: order.cleaner_id,
-      status_pekerjaan: order.status_pekerjaan
+      id: updated.id,
+      cleaner_id: updated.cleaner_id,
+      status_pekerjaan: updated.status_pekerjaan
     }
   });
 });
 
 // POST /api/orders/:id/reassign — Penggantian petugas ber-audit
-router.post('/:id/reassign', (req, res) => {
+router.post('/:id/reassign', async (req, res) => {
   const { id } = req.params;
   const { new_cleaner_id, alasan, role } = req.body;
-  const order = inMemoryStore.orders.find(o => o.id === id);
+  const order = await db.getOrderById(id);
 
   if (!order) {
     return res.status(404).json({
@@ -522,7 +436,7 @@ router.post('/:id/reassign', (req, res) => {
     });
   }
 
-  const newCleaner = inMemoryStore.cleaners.find(c => c.id === new_cleaner_id);
+  const newCleaner = await db.getCleanerById(new_cleaner_id);
   if (!newCleaner || newCleaner.status_operasional !== 'Aktif') {
     return res.status(400).json({
       success: false,
@@ -532,7 +446,8 @@ router.post('/:id/reassign', (req, res) => {
   }
 
   // Cek bentrok jadwal petugas baru
-  const existingOrders = inMemoryStore.orders.filter(o =>
+  const allOrders = await db.getOrders();
+  const existingOrders = allOrders.filter(o =>
     o.cleaner_id === new_cleaner_id &&
     o.tanggal_layanan === order.tanggal_layanan &&
     o.id !== order.id &&
@@ -553,36 +468,29 @@ router.post('/:id/reassign', (req, res) => {
   }
 
   const oldCleanerId = order.cleaner_id;
-  order.cleaner_id = new_cleaner_id;
-
-  inMemoryStore.status_logs.push({
-    id: crypto.randomUUID(),
-    order_id: order.id,
-    status_sebelumnya: 'Petugas Ditugaskan',
-    status_baru: 'Petugas Ditugaskan',
-    diubah_oleh: role || 'admin',
-    catatan: `REASSIGN_CLEANER: dari ${oldCleanerId} ke ${new_cleaner_id} - Alasan: ${alasan.trim()}`,
-    created_at: new Date().toISOString()
+  const updated = await db.assignCleaner(id, new_cleaner_id, {
+    isReassign: true,
+    oldCleanerId,
+    alasan: alasan.trim(),
+    assigned_by: role || 'admin'
   });
-
-  saveStateToDisk();
 
   return res.status(200).json({
     success: true,
     message: 'Petugas berhasil dialihkan',
     data: {
-      id: order.id,
-      cleaner_id: order.cleaner_id,
-      status_pekerjaan: order.status_pekerjaan
+      id: updated.id,
+      cleaner_id: updated.cleaner_id,
+      status_pekerjaan: updated.status_pekerjaan
     }
   });
 });
 
 // POST /api/orders/:id/cancel — Pembatalan pesanan terstruktur berbasis peran
-router.post('/:id/cancel', (req, res) => {
+router.post('/:id/cancel', async (req, res) => {
   const { id } = req.params;
   const { cancellation_reason, role } = req.body;
-  const order = inMemoryStore.orders.find(o => o.id === id);
+  const order = await db.getOrderById(id);
 
   if (!order) {
     return res.status(404).json({
@@ -622,33 +530,20 @@ router.post('/:id/cancel', (req, res) => {
     }
   }
 
-  const prevStatus = order.status_pekerjaan;
-  const now = new Date().toISOString();
-  order.status_pekerjaan = 'Dibatalkan';
-  order.cancellation_reason = cancellation_reason.trim();
-  order.cancelled_by = actorRole;
-  order.cancelled_at = now;
-
-  inMemoryStore.status_logs.push({
-    id: crypto.randomUUID(),
-    order_id: order.id,
-    status_sebelumnya: prevStatus,
-    status_baru: 'Dibatalkan',
-    diubah_oleh: actorRole,
-    catatan: `Pesanan dibatalkan oleh ${actorRole}. Alasan: ${order.cancellation_reason}`,
-    created_at: now
+  const updated = await db.cancelOrder(id, {
+    cancellation_reason: cancellation_reason.trim(),
+    cancelled_by: actorRole,
+    prevStatus: order.status_pekerjaan
   });
-
-  saveStateToDisk();
 
   return res.status(200).json({
     success: true,
     message: 'Pesanan berhasil dibatalkan',
     data: {
-      id: order.id,
-      status_pekerjaan: order.status_pekerjaan,
-      cancelled_by: order.cancelled_by,
-      cancelled_at: order.cancelled_at
+      id: updated.id,
+      status_pekerjaan: updated.status_pekerjaan,
+      cancelled_by: updated.cancelled_by,
+      cancelled_at: updated.cancelled_at
     }
   });
 });
