@@ -65,7 +65,7 @@ router.get('/recommendations', async (req, res, next) => {
 
     // 5. Ambil Data Layanan
     const { data: services } = await getServices(true);
-    const service = services.find(s => s.id === service_id && s.is_active);
+    const service = services.find(s => (s.id === service_id || s.kategori === service_id) && s.is_active);
     if (!service) {
       return res.status(400).json({
         success: false,
@@ -76,7 +76,7 @@ router.get('/recommendations', async (req, res, next) => {
 
     // 6. Ambil Data Petugas & Pesanan Aktif
     const cleaners = await db.getCleaners();
-    const existingOrders = inMemoryStore.orders;
+    const existingOrders = await db.getOrders();
 
     // 7. Jalankan Algoritma Smart Matching
     const recommendations = getRecommendations({
