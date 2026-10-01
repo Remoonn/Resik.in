@@ -9,6 +9,14 @@ import {
   sanitizeCleanerId
 } from './mapper.js';
 
+function normalizeCleaner(cleaner) {
+  if (!cleaner) return null;
+  return {
+    ...cleaner,
+    status_operasional: (cleaner.status_operasional || '').toLowerCase() === 'aktif' ? 'Aktif' : cleaner.status_operasional
+  };
+}
+
 export const db = {
   // CLEANERS REPO
   async getCleaners() {
@@ -19,7 +27,7 @@ export const db = {
           .select('*')
           .order('rating_rata_rata', { ascending: false });
         if (!error && data && data.length > 0) {
-          return data;
+          return data.map(normalizeCleaner);
         }
         if (error) {
           console.warn('[db.getCleaners] Supabase error:', error.message);
@@ -41,7 +49,7 @@ export const db = {
           .eq('id', cleanerId)
           .maybeSingle();
         if (!error && data) {
-          return data;
+          return normalizeCleaner(data);
         }
       } catch (err) {
         console.warn('[db.getCleanerById] Fallback ke in-memory:', err.message);

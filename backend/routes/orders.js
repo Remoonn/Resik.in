@@ -159,7 +159,7 @@ router.post('/', async (req, res) => {
 
     // 7. Cari Layanan dan Lakukan Snapshot Tarif Flat Deterministik
     const { data: services } = await getServices(true);
-    const service = services.find(s => s.id === body.service_id && s.is_active);
+    const service = services.find(s => (s.id === body.service_id || s.kategori === body.service_id) && s.is_active);
 
     if (!service) {
       return res.status(400).json({
