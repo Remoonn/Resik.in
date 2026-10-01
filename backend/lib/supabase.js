@@ -29,7 +29,7 @@ export const supabaseAdmin = createClient(
 );
 
 export function isLiveSupabase() {
-  if (process.env.NODE_ENV === 'test') return false;
+  if (process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT)) return false;
   return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 }
 

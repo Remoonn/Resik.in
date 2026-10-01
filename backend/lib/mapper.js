@@ -87,30 +87,41 @@ export function orderToApi(dbRow, service = null, cleaner = null) {
   };
 }
 
+export const SERVICE_CATEGORY_MAP = {
+  rumah: '14afb604-f297-4526-ba3b-47c1d6fb762a',
+  kos: '2abfccbb-1643-4519-b4d0-c72996e8bb9f',
+  kantor: '90996ad8-b91e-47d1-a1d9-63dd7519cfd7',
+  pasca_renovasi: '392ec1bf-6771-48c8-8604-974386a5615d'
+};
+
+export function sanitizeServiceId(serviceId) {
+  if (!serviceId) return null;
+  if (SERVICE_CATEGORY_MAP[serviceId]) return SERVICE_CATEGORY_MAP[serviceId];
+  if (UUID_REGEX.test(serviceId)) return serviceId;
+  return null;
+}
+
 export function orderToDb(apiPayload) {
-  return {
-    id: apiPayload.id,
+  const row = {
     order_code: apiPayload.order_code,
     customer_id: sanitizeCustomerId(apiPayload.customer_id),
-    service_id: apiPayload.service_id,
+    service_id: sanitizeServiceId(apiPayload.service_id),
     cleaner_id: sanitizeCleanerId(apiPayload.cleaner_id),
     preferensi_petugas_id: sanitizeCleanerId(apiPayload.preferensi_petugas_id),
-    alamat_lengkap: apiPayload.alamat_lengkap,
-    patokan_lokasi: apiPayload.patokan_lokasi,
-    luas_area: apiPayload.luas_area,
-    catatan_khusus: apiPayload.catatan_khusus || null,
+    alamat_lengkap: apiPayload.alamat_lengkap || apiPayload.alamat || '',
+    patokan_lokasi: apiPayload.patokan_lokasi || null,
+    luas_area: apiPayload.luas_area || null,
+    catatan_khusus: apiPayload.catatan_khusus || apiPayload.catatan || null,
     tanggal_layanan: apiPayload.tanggal_layanan,
     jam_mulai: apiPayload.start_time || apiPayload.jam_mulai,
-    duration: Number(apiPayload.duration || 2),
-    end_time: apiPayload.end_time || null,
-    harga_saat_booking: Number(apiPayload.harga_saat_booking || apiPayload.total_biaya),
     total_biaya: Number(apiPayload.total_biaya),
+    metode_pembayaran: apiPayload.metode_pembayaran || 'simulasi_dummy',
     status_pembayaran: toDbPaymentStatus(apiPayload.status_pembayaran),
-    payment_timestamp: apiPayload.payment_timestamp || null,
-    status_pekerjaan: toDbJobStatus(apiPayload.status_pekerjaan),
-    started_at: apiPayload.started_at || null,
-    cancellation_reason: apiPayload.cancellation_reason || null,
-    cancelled_by: sanitizeCustomerId(apiPayload.cancelled_by),
-    cancelled_at: apiPayload.cancelled_at || null
+    status_pekerjaan: toDbJobStatus(apiPayload.status_pekerjaan)
   };
+  if (apiPayload.id && UUID_REGEX.test(apiPayload.id)) {
+    row.id = apiPayload.id;
+  }
+  return row;
 }
+

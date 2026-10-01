@@ -269,9 +269,6 @@ export const db = {
       status_pekerjaan: dbStatus,
       updated_at: now
     };
-    if (nextStatus === 'Sedang Dikerjakan') {
-      updatePayload.started_at = now;
-    }
 
     if (isLiveSupabase()) {
       try {
@@ -382,9 +379,6 @@ export const db = {
           .from('orders')
           .update({
             status_pekerjaan: toDbJobStatus('Dibatalkan'),
-            cancellation_reason: cancellationReason,
-            cancelled_by: sanitizeCustomerId(cancelledBy),
-            cancelled_at: now,
             updated_at: now
           })
           .eq('id', orderId)
@@ -435,7 +429,6 @@ export const db = {
           .from('orders')
           .update({
             status_pembayaran: toDbPaymentStatus('Sudah Bayar'),
-            payment_timestamp: now,
             updated_at: now
           })
           .eq('id', orderId)
