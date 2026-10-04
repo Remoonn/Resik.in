@@ -99,6 +99,49 @@ export const db = {
     return cleaner;
   },
 
+  async ensureProfileExists(customerId) {
+    if (!isLiveSupabase() || !customerId) return null;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(customerId);
+    if (!isUuid) return null;
+
+    try {
+      const { data: existing } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('id', customerId)
+        .maybeSingle();
+
+      if (existing) return existing.id;
+
+      // Profile belum ada di public.profiles, ambil data user dari Supabase Auth
+      const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.getUserById(customerId);
+      if (!authErr && authUser && authUser.user) {
+        const u = authUser.user;
+        const meta = u.user_metadata || {};
+        const nama = meta.full_name || meta.name || meta.nama || u.email?.split('@')[0] || 'Pelanggan Resik';
+        const email = u.email || '';
+        const { data: inserted, error: insErr } = await supabaseAdmin
+          .from('profiles')
+          .insert({
+            id: customerId,
+            nama,
+            email,
+            nomor_wa: meta.phone || meta.nomor_wa || '-',
+            role: meta.role || 'customer'
+          })
+          .select()
+          .single();
+
+        if (!insErr && inserted) {
+          return inserted.id;
+        }
+      }
+    } catch (err) {
+      console.warn('[db.ensureProfileExists] Warning:', err.message);
+    }
+    return null;
+  },
+
   // ORDERS REPO
   async createOrder(orderPayload) {
     const id = (orderPayload.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderPayload.id))
@@ -119,6 +162,9 @@ export const db = {
 
     if (isLiveSupabase()) {
       try {
+        if (fullOrder.customer_id) {
+          await this.ensureProfileExists(fullOrder.customer_id);
+        }
         const dbRow = orderToDb(fullOrder);
         dbRow.id = id;
         const { data, error } = await supabaseAdmin
@@ -164,11 +210,14 @@ export const db = {
     if (!orderId) return null;
     if (isLiveSupabase()) {
       try {
-        const { data: order, error } = await supabaseAdmin
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .maybeSingle();
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId);
+        let query = supabaseAdmin.from('orders').select('*');
+        if (isUuid) {
+          query = query.eq('id', orderId);
+        } else {
+          query = query.eq('order_code', orderId);
+        }
+        const { data: order, error } = await query.maybeSingle();
         if (!error && order) {
           // Fetch service & cleaner & status_logs
           const { data: service } = order.service_id
@@ -180,7 +229,7 @@ export const db = {
           const { data: logs } = await supabaseAdmin
             .from('status_logs')
             .select('*')
-            .eq('order_id', orderId)
+            .eq('order_id', order.id)
             .order('created_at', { ascending: true });
 
           const apiOrder = orderToApi(order, service, cleaner);
@@ -192,7 +241,7 @@ export const db = {
       }
     }
 
-    const order = inMemoryStore.orders.find(o => o.id === orderId);
+    const order = inMemoryStore.orders.find(o => o.id === orderId || o.order_code === orderId);
     if (!order) return null;
 
     const { data: services } = await getServices(true);
@@ -220,17 +269,30 @@ export const db = {
     };
   },
 
+  async getOrderByCode(orderCode) {
+    return this.getOrderById(orderCode);
+  },
+
   async getOrders(filters = {}) {
     if (isLiveSupabase()) {
       try {
         let query = supabaseAdmin.from('orders').select('*').order('created_at', { ascending: false });
         if (filters.customer_id) {
           const sanitizedCustId = sanitizeCustomerId(filters.customer_id);
-          if (sanitizedCustId) query = query.eq('customer_id', sanitizedCustId);
+          if (sanitizedCustId) {
+            query = query.eq('customer_id', sanitizedCustId);
+          } else {
+            // Jika bukan format UUID valid (misal user demo prototype), cocokkan dengan customer_id null
+            query = query.is('customer_id', null);
+          }
         }
         if (filters.cleaner_id) {
           const sanitizedClnId = sanitizeCleanerId(filters.cleaner_id);
           if (sanitizedClnId) query = query.eq('cleaner_id', sanitizedClnId);
+        }
+        if (filters.status) {
+          const dbStatus = toDbJobStatus(filters.status);
+          query = query.eq('status_pekerjaan', dbStatus);
         }
         const { data, error } = await query;
         if (!error && data) {
@@ -256,6 +318,9 @@ export const db = {
     }
     if (filters.cleaner_id) {
       orders = orders.filter(o => o.cleaner_id === filters.cleaner_id);
+    }
+    if (filters.status) {
+      orders = orders.filter(o => o.status_pekerjaan === filters.status);
     }
     return orders.map(order => {
       const service = (services || []).find(s => s.id === order.service_id);
@@ -637,8 +702,11 @@ export const db = {
     return (inMemoryStore.quality_reports || []).find(r => r.order_id === targetOrderId) || null;
   },
 
-  async uploadQualityReportPhoto(orderId, type, buffer, mimeType = 'image/jpeg') {
-    const storagePath = `orders/${orderId}/${type}.jpg`;
+  async uploadQualityReportPhoto(orderId, typeOrPath, buffer, mimeType = 'image/jpeg') {
+    const storagePath = (typeOrPath && typeOrPath.includes('/'))
+      ? (typeOrPath.startsWith('/') ? typeOrPath.slice(1) : typeOrPath)
+      : `orders/${orderId}/${typeOrPath}.jpg`;
+
     if (isLiveSupabase()) {
       try {
         await ensureStorageBucket();
@@ -661,22 +729,47 @@ export const db = {
     if (!inMemoryStore.quality_report_photos[orderId]) {
       inMemoryStore.quality_report_photos[orderId] = {};
     }
-    inMemoryStore.quality_report_photos[orderId][type] = {
+    const slot = (typeOrPath && typeOrPath.includes('after')) ? 'after' : 'before';
+    inMemoryStore.quality_report_photos[orderId][slot] = {
       contentType: mimeType,
       buffer
     };
     return storagePath;
   },
 
-  async getQualityReportSignedUrl(storagePath) {
+  async getQualityReportSignedUrl(storagePath, expiresIn = 1800) {
     if (!storagePath) return null;
     if (isLiveSupabase()) {
       try {
-        const { data, error } = await supabaseAdmin.storage
+        await ensureStorageBucket();
+        const cleanPath = storagePath.startsWith('/') ? storagePath.slice(1) : storagePath;
+        let { data, error } = await supabaseAdmin.storage
           .from('quality-reports')
-          .createSignedUrl(storagePath, 3600);
+          .createSignedUrl(cleanPath, expiresIn);
+
         if (!error && data && data.signedUrl) {
           return data.signedUrl;
+        }
+
+        // Coba path alternatif jika file di bucket tersimpan dengan nama/ekstensi berbeda (misal .jpg vs .webp)
+        const altCandidates = [];
+        if (cleanPath.includes('before')) {
+          altCandidates.push(cleanPath.replace(/\/before[^/]*$/, '/before.jpg'));
+          altCandidates.push(cleanPath.replace(/\/before[^/]*$/, '/before.webp'));
+        } else if (cleanPath.includes('after')) {
+          altCandidates.push(cleanPath.replace(/\/after[^/]*$/, '/after.jpg'));
+          altCandidates.push(cleanPath.replace(/\/after[^/]*$/, '/after.webp'));
+        }
+
+        for (const candidate of altCandidates) {
+          if (candidate !== cleanPath) {
+            const altRes = await supabaseAdmin.storage
+              .from('quality-reports')
+              .createSignedUrl(candidate, expiresIn);
+            if (!altRes.error && altRes.data && altRes.data.signedUrl) {
+              return altRes.data.signedUrl;
+            }
+          }
         }
       } catch (err) {
         console.warn('[db.getQualityReportSignedUrl] Fallback URL:', err.message);

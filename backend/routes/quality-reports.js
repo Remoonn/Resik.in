@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { inMemoryStore, supabase, getServices, saveStateToDisk } from '../lib/supabase.js';
+import { inMemoryStore, supabase, supabaseAdmin, isLiveSupabase, getServices, saveStateToDisk } from '../lib/supabase.js';
 import { CHECKLIST_TEMPLATES } from '../lib/checklist-templates.js';
 import { db } from '../lib/database.js';
 
@@ -171,10 +171,10 @@ router.post('/', async (req, res) => {
   const afterPhoto = parseBase64(req.body.foto_after_data);
 
   if (beforePhoto) {
-    await db.uploadQualityReportPhoto(order.id, 'before', beforePhoto.buffer, beforePhoto.contentType);
+    await db.uploadQualityReportPhoto(order.id, foto_before_path, beforePhoto.buffer, beforePhoto.contentType);
   }
   if (afterPhoto) {
-    await db.uploadQualityReportPhoto(order.id, 'after', afterPhoto.buffer, afterPhoto.contentType);
+    await db.uploadQualityReportPhoto(order.id, foto_after_path, afterPhoto.buffer, afterPhoto.contentType);
   }
 
   return res.status(201).json({
@@ -196,7 +196,10 @@ router.get('/:order_id', async (req, res) => {
   const role = req.headers['x-user-role'] || req.query.role;
 
   // 1. Temukan Order (Berdasarkan ID atau order_code)
-  const order = inMemoryStore.orders.find(o => o.id === order_id || o.order_code === order_id);
+  let order = await db.getOrderById(order_id);
+  if (!order) {
+    order = await db.getOrderByCode(order_id);
+  }
   if (!order) {
     return res.status(404).json({
       success: false,
@@ -312,8 +315,34 @@ router.get('/:order_id', async (req, res) => {
 });
 
 // GET /api/quality-reports/:order_id/photo/:type — Streaming foto sebelum / sesudah pengerjaan
-router.get('/:order_id/photo/:type', (req, res) => {
+router.get('/:order_id/photo/:type', async (req, res) => {
   const { order_id, type } = req.params;
+  const isAfter = type.startsWith('after');
+  const photoType = isAfter ? 'after' : 'before';
+
+  if (isLiveSupabase()) {
+    try {
+      const candidates = [
+        `orders/${order_id}/${type}.jpg`,
+        `orders/${order_id}/${type}.webp`,
+        `orders/${order_id}/${photoType}.jpg`,
+        `orders/${order_id}/${photoType}.webp`
+      ];
+      for (const p of candidates) {
+        const { data, error } = await supabaseAdmin.storage
+          .from('quality-reports')
+          .download(p);
+        if (!error && data) {
+          const arrayBuffer = await data.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          res.set('Content-Type', data.type || 'image/jpeg');
+          res.set('Cache-Control', 'public, max-age=1800');
+          return res.send(buffer);
+        }
+      }
+    } catch (_) {}
+  }
+
   const photos = inMemoryStore.quality_report_photos &&
     (inMemoryStore.quality_report_photos[order_id] ||
      inMemoryStore.quality_report_photos[Object.keys(inMemoryStore.quality_report_photos).find(k => k === order_id)]);

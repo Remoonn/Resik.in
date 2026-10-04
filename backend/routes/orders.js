@@ -37,9 +37,32 @@ function generateOrderCode(tanggalLayanan) {
   return `RSK-${cleanDate}-${count}`;
 }
 
-// GET /api/orders — Mengambil daftar pesanan
+// GET /api/orders — Mengambil daftar pesanan dengan Isolasi RBAC (Sprint 3 & Security SOT)
 router.get('/', async (req, res) => {
-  const orders = await db.getOrders();
+  const userId = req.headers['x-user-id'] || req.query.user_id || req.query.customer_id;
+  const role = req.headers['x-user-role'] || req.query.role;
+  const cleanerId = req.headers['x-cleaner-id'] || req.query.cleaner_id;
+  const status = req.query.status;
+
+  const filters = {};
+  if (status) {
+    filters.status = status;
+  }
+
+  // Isolasi Peran RBAC (SOT docs/AGENTS.md & docs/API.md)
+  if (role === 'admin') {
+    // Admin memiliki hak membaca seluruh pesanan, atau filter spesifik jika diminta
+    if (req.query.customer_id) filters.customer_id = req.query.customer_id;
+    if (req.query.cleaner_id) filters.cleaner_id = req.query.cleaner_id;
+  } else if (role === 'cleaner' || cleanerId) {
+    // Cleaner hanya membaca pesanan yang ditugaskan padanya
+    filters.cleaner_id = cleanerId || userId;
+  } else if (userId) {
+    // Pelanggan (customer): hanya membaca pesanannya sendiri
+    filters.customer_id = userId;
+  }
+
+  const orders = await db.getOrders(filters);
 
   return res.status(200).json({
     success: true,
@@ -174,10 +197,11 @@ router.post('/', async (req, res) => {
     const endTime = calculateEndTime(body.start_time, duration);
 
     // 8. Buat Objek Pesanan Baru
+    const effectiveCustomerId = body.customer_id || req.headers['x-user-id'] || 'usr-customer-001';
     const newOrder = {
       id: crypto.randomUUID(),
       order_code: generateOrderCode(body.tanggal_layanan),
-      customer_id: body.customer_id || 'usr-customer-001',
+      customer_id: effectiveCustomerId,
       service_id: service.id,
       service_kategori: service.kategori,
       cleaner_id: null,
