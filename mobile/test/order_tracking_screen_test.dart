@@ -260,5 +260,41 @@ void main() {
       // Memastikan item renovasi tidak muncul pada kos
       expect(find.text('Pengikisan sisa semen kering di lantai'), findsNothing);
     });
+
+    testWidgets('7. Tidak merender tombol Simulasi Operasional saat simulasi dinonaktifkan', (tester) async {
+      final order = OrderModel(
+        id: 'ord-test-no-sim',
+        orderCode: 'RSK-20261005-NOSIM',
+        serviceId: 'srv-001',
+        serviceName: 'Bersih Rumah',
+        serviceCategory: 'rumah',
+        tanggalLayanan: '2026-10-05',
+        startTime: '09:00',
+        endTime: '11:00',
+        duration: 2,
+        alamatLengkap: 'Jl. Rungkut Asri No. 10',
+        patokanLokasi: 'Rumah Putih',
+        luasArea: '100',
+        hargaSaatBooking: 150000.0,
+        totalBiaya: 150000.0,
+        statusPembayaran: 'Sudah Bayar',
+        statusPekerjaan: 'Menuju Lokasi',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OrderTrackingScreen(
+            orderId: order.id,
+            initialOrder: order,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Memastikan tombol dan FAB Simulasi Operasional tidak muncul di antarmuka pelanggan
+      expect(find.text('Simulasi Operasional'), findsNothing);
+      expect(find.byIcon(Icons.tune), findsNothing);
+    });
   });
 }
+

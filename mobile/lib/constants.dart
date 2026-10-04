@@ -29,8 +29,7 @@ class SupabaseConstants {
 
 class AppConfig {
   /// Flag konfigurasi untuk mengaktifkan/menonaktifkan sheet Simulasi Operasional di HP.
-  /// Saat diset true, pengguna dapat mensimulasikan aksi Admin & Cleaner langsung dari layar pelacakan.
-  /// Saat diset false, sheet simulasi disembunyikan dan sistem mematuhi otorisasi peran riil.
-  static const bool kEnableOperationalSimulation = true;
+  /// Dinonaktifkan (false) untuk mode produksi/multi-role karena sudah ada dashboard dedicated.
+  static const bool kEnableOperationalSimulation = false;
 }
 

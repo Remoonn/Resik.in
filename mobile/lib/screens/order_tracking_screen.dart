@@ -26,11 +26,13 @@ class OrderTrackingScreen extends StatefulWidget {
   State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
 }
 
-class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTickerProviderStateMixin {
+class _OrderTrackingScreenState extends State<OrderTrackingScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   OrderModel? _order;
   ReviewModel? _existingReview;
   bool _isLoading = true;
   Timer? _timer;
+  Timer? _pollTimer;
   int _elapsedSeconds = 0;
   late AnimationController _pulseController;
 
@@ -75,6 +77,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -88,6 +91,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
       _order = widget.initialOrder;
       _isLoading = false;
       _initTimer();
+      _initPollingTimer();
       if (_order!.statusPekerjaan == 'Selesai' && _existingReview == null) {
         _fetchReview();
       }
@@ -98,9 +102,53 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollTimer?.cancel();
     _timer?.cancel();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _initPollingTimer();
+      _fetchOrderSilently();
+    } else if (state == AppLifecycleState.paused) {
+      _pollTimer?.cancel();
+    }
+  }
+
+  void _initPollingTimer() {
+    _pollTimer?.cancel();
+    if (_order != null &&
+        _order!.statusPekerjaan != 'Selesai' &&
+        _order!.statusPekerjaan != 'Dibatalkan') {
+      _pollTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+        if (mounted) {
+          _fetchOrderSilently();
+        }
+      });
+    }
+  }
+
+  Future<void> _fetchOrderSilently() async {
+    try {
+      final fetched = await ApiService.fetchOrderById(widget.orderId);
+      if (!mounted || fetched == null) return;
+      if (_order == null ||
+          _order!.statusPekerjaan != fetched.statusPekerjaan ||
+          _order!.cleanerId != fetched.cleanerId) {
+        setState(() {
+          _order = fetched;
+        });
+        _initTimer();
+        _initPollingTimer();
+        if (_order!.statusPekerjaan == 'Selesai' && _existingReview == null) {
+          _fetchReview();
+        }
+      }
+    } catch (_) {}
   }
 
   void _initTimer() {
@@ -133,6 +181,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
       _isLoading = false;
     });
     _initTimer();
+    _initPollingTimer();
     if (_order != null && _order!.statusPekerjaan == 'Selesai' && _existingReview == null) {
       _fetchReview();
     }
