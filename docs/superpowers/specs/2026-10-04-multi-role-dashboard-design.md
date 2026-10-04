@@ -1,14 +1,14 @@
 # Spesifikasi Desain: Multi-Role Dedicated Dashboards (Admin, Cleaner, Customer) & Penghapusan Simulasi Operasional
 
 > **Dokumen:** `docs/superpowers/specs/2026-10-04-multi-role-dashboard-design.md`  
-> **Status:** Approved Architecture Specification (Senior Software Engineer Hardened)  
+> **Status:** Approved Architecture Specification (PM & Senior Software Engineer Hardened)  
 > **Tanggal:** 04 Oktober 2026  
 > **Target Rilis:** Sprint 6 — Production-Grade Multi-Role Architecture  
 > **Referensi SOT:** `docs/PRD-Resik.in.md`, `docs/ARCHITECTURE.md`, `docs/BUSINESS-RULES.md`, `docs/API.md`, `docs/SECURITY.md`, `database/schema.sql`
 
 ---
 
-## 1. Latar Belakang, Problem Statement, & Urgensi
+## 1. Latar Belakang, Problem Statement, & Urgensi Produk
 
 ### 1.1 Kondisi Saat Ini (Current State)
 Pada Milestone V1 dan V1.1 (Sprint 0 s.d. Sprint 5), seluruh logika backend REST API dan aturan bisnis mutlak telah selesai diimplementasikan secara *server-authoritative* dan terhubung langsung ke **Supabase Cloud (PostgreSQL & Storage)**:
@@ -29,9 +29,20 @@ Pada Milestone V1 dan V1.1 (Sprint 0 s.d. Sprint 5), seluruh logika backend REST
 4. **Pembersihan Antarmuka Pelanggan**: Menghapus seluruh tombol simulasi dari antarmuka pelanggan sehingga pelanggan murni menerima pembaruan status nyata (*real-time/short-polling*) dan mengisi ulasan pasca-selesai.
 5. **Fleksibilitas Pengujian Sidang Skripsi**: Menyediakan mekanisme *Role Switcher* terisolasi berlabel demo di tab Akun agar penguji dapat mengevaluasi 3 peran berbeda dengan mudah pada satu perangkat ponsel.
 
+### 1.4 Kriteria Keberterimaan Produk (Product Acceptance Criteria)
+| ID AC | Modul / Aktor | Skenario Pengujian (Given - When - Then) | Hasil yang Diharapkan |
+| :--- | :--- | :--- | :--- |
+| **AC-AUTH-01** | Navigasi / `AuthGate` | **Given** pengguna login dengan profil `role == 'admin'`<br>**When** aplikasi memuat `AuthGate`<br>**Then** halaman yang dirender adalah `AdminDashboardScreen`. | Pengguna masuk langsung ke menara kontrol operasional tanpa melewati halaman pelanggan. |
+| **AC-AUTH-02** | Navigasi / `AuthGate` | **Given** pengguna login dengan profil `role == 'cleaner'`<br>**When** aplikasi memuat `AuthGate`<br>**Then** halaman yang dirender adalah `CleanerDashboardScreen`. | Pengguna langsung melihat daftar tugas lapangan aktif miliknya. |
+| **AC-ADM-01** | Admin / Konfirmasi | **Given** pesanan berstatus `Menunggu Konfirmasi` dengan `status_pembayaran == 'Belum Bayar'`<br>**When** Admin membuka tab "Butuh Tindakan"<br>**Then** tombol "Konfirmasi Pesanan" terkunci (*disabled*) dengan teks *"Menunggu Pembayaran Pelanggan"*. | Mencegah pelanggaran aturan bisnis *BR-FIN-001*. |
+| **AC-ADM-02** | Admin / Penugasan | **Given** pesanan `Dikonfirmasi` dan petugas A mengalami bentrok jadwal (irisan waktu + buffer 30 mnt)<br>**When** Admin membuka `SmartAssignmentSheet`<br>**Then** petugas A ditandai badge merah *"Jadwal Bentrok"* dan tombol pemilihannya dinonaktifkan. | Mencegah *double booking* jadwal petugas secara visual dan *server-side*. |
+| **AC-CLN-01** | Cleaner / Progres | **Given** pesanan berstatus `Petugas Ditugaskan`<br>**When** Petugas menekan tombol "Mulai Berangkat"<br>**Then** status pesanan bertransisi menjadi `Menuju Lokasi` dan tombol berikutnya berubah menjadi "Saya Sudah Tiba di Lokasi". | Transisi status lapangan terjadi berurutan tanpa loncat tahap (*BR-STS-001*). |
+| **AC-CLN-02** | Cleaner / Quality Report | **Given** pesanan berstatus `Sedang Dikerjakan`<br>**When** Petugas menyelesaikan pekerjaan dan menekan "Kirim Laporan Mutu"<br>**Then** form `QualityReportScreen` terbuka, memvalidasi foto Before/After, checklist, dan mengubah status menjadi `Selesai`. | Gerbang status `Selesai` hanya dapat ditembus melalui dokumen mutu (*BR-QRP-001*). |
+| **AC-CUST-01** | Customer / Pelacakan | **Given** pelanggan membuka layar pelacakan `OrderTrackingScreen`<br>**When** Admin atau Petugas memperbarui status di dasbor masing-masing<br>**Then** dalam maksimal 10 detik atau saat *Pull-to-Refresh*, stepper bergerak maju secara otomatis tanpa tombol simulasi. | Pengalaman pelanggan murni mencerminkan aplikasi konsumen profesional. |
+
 ---
 
-## 2. Arsitektur Peran & Navigasi Sistem (`AuthGate`) — Penyempurnaan Bagian 1
+## 2. Arsitektur Peran & Navigasi Sistem (`AuthGate`)
 
 ### 2.1 Alur Deteksi Peran & Pemetaan Identitas (*Identity Linking*)
 Sesuai rancangan basis data Supabase:
@@ -77,32 +88,31 @@ Saat pengguna dengan `role: 'cleaner'` login:
 3. `CleanerDashboardScreen` memanfaatkan `cleanerId` ini untuk mengambil daftar tugas aktif:
    `GET /api/orders?cleaner_id={cleanerId}`.
 
-### 2.3 Skema Database Linking (SQL Migration)
-Untuk memastikan akun demo cleaner di `public.profiles` terhubung dengan data petugas di `public.cleaners`:
-```sql
--- Memastikan kolom user_id tersedia di tabel cleaners
-ALTER TABLE public.cleaners 
-ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
-
--- Menautkan cleaner Cecep ke profil cleaner aktif untuk keperluan pengujian
-UPDATE public.cleaners 
-SET user_id = 'c1eane11-0000-4000-a000-000000000001' 
-WHERE nama = 'Cecep' AND user_id IS NULL;
+### 2.3 Kontrak Header HTTP Global & Otorisasi RBAC
+Untuk memastikan seluruh request API menyertakan kredensial identitas yang konsisten, `AuthService` menyediakan getter header terpusat:
+```dart
+Map<String, String> get authHeaders => {
+  'Content-Type': 'application/json',
+  if (currentUser != null) 'x-user-id': currentUser!.id,
+  if (currentUser != null) 'x-user-role': currentUser!.role,
+  if (currentUser?.cleanerId != null) 'x-cleaner-id': currentUser!.cleanerId!,
+};
 ```
+Backend Express.js secara *server-authoritative* memvalidasi header ini untuk menerapkan isolasi peran pada `GET /api/orders`, `PATCH /api/orders/:id/status`, dan `POST /api/orders/:id/assign`.
 
-### 2.4 Mekanisme Role Switcher (Khusus Demonstrasi Evaluasi Skripsi)
-- Di tab **Akun** (baik di Customer, Cleaner, maupun Admin), sistem menyediakan menu ekspansi: **"Mode Evaluasi Skripsi (Role Switcher)"**.
-- Pengguna/Penguji sidang dapat berpindah mode seketika tanpa harus memasukkan kredensial login berulang-ulang:
+### 2.4 Reaktivitas State `AuthService` & Role Switcher (Khusus Demonstrasi Evaluasi Skripsi)
+- `AuthService` mengimplementasikan pola `ChangeNotifier` atau mengekspos `Stream<UserModel?>` sehingga pemanggilan `switchRole(...)` secara instan memicu `notifyListeners()` pada `AuthGate`.
+- Pengguna/Penguji sidang dapat berpindah mode seketika melalui menu ekspansi **"Mode Evaluasi Skripsi (Role Switcher)"** di tab Akun:
   - Mode Pelanggan (`Customer - Demo User`)
-  - Mode Petugas Lapangan (`Cleaner - Cecep / Candra Pratama`)
+  - Mode Petugas Lapangan (`Cleaner - Cecep` dengan `cleanerId` tertaut)
   - Mode Administrator (`Admin Operasional`)
 - **Senior Software Engineer Safeguard**:
-  - Pergantian peran di UI akan memperbarui sesi `currentUser` di `AuthService` dan mengirimkan header identitas yang valid ke backend (`x-user-id`, `x-user-role`, dan `x-cleaner-id`).
-  - Hal ini menjamin bahwa seluruh pembatasan akses server-side (RBAC Express.js & RLS Supabase) tetap berjalan sesuai hak akses sebenarnya tanpa ada celah bypass keamanan.
+  - Perpindahan peran memperbarui memori sesi `currentUser` dan header HTTP tanpa me-restart aplikasi.
+  - Seluruh pembatasan akses server-side (Express RBAC & Supabase RLS) tetap berjalan 100% valid sesuai identitas peran yang aktif.
 
 ---
 
-## 3. Spesifikasi Dasbor Petugas (*Cleaner Dashboard*) — Penyempurnaan Bagian 2
+## 3. Spesifikasi Dasbor Petugas (*Cleaner Dashboard*)
 
 ### 3.1 Komponen & Tata Letak Layar (`CleanerDashboardScreen`)
 Layar didesain khusus untuk penggunaan operasional lapangan dengan satu tangan (*one-handed mobile operation*):
@@ -116,8 +126,8 @@ Layar didesain khusus untuk penggunaan operasional lapangan dengan satu tangan (
    - Total pesanan yang tuntas dikerjakan.
 3. **Tab Navigasi Pekerjaan**:
    - **Tab 1: Tugas Berjalan (*Active Task*)**:
-     - Menampilkan kartu pesanan yang ditugaskan kepada dirinya (`Petugas Ditugaskan`, `Menuju Lokasi`, `Tiba di Lokasi`, `Sedang Dikerjakan`).
-     - Menyajikan informasi lapangan lengkap: Alamat hunian pelanggan, patokan lokasi, tombol cepat **"Buka Navigasi / Peta"** (membuka Google Maps intent via `url_launcher`), jadwal kedatangan, durasi layanan, luas area, dan catatan khusus hunian.
+     - Menampilkan kartu pesanan aktif yang ditugaskan kepada dirinya (`Petugas Ditugaskan`, `Menuju Lokasi`, `Tiba di Lokasi`, `Sedang Dikerjakan`).
+     - Menyajikan informasi lapangan lengkap: Alamat hunian pelanggan, patokan lokasi, tombol cepat **"Buka Navigasi / Peta"**, jadwal kedatangan, durasi layanan, luas area, dan catatan khusus hunian.
    - **Tab 2: Riwayat Pekerjaan (*Completed History*)**:
      - Daftar pesanan berstatus `Selesai` yang pernah dikerjakan oleh petugas ini.
      - Menampilkan rating bintang dan ulasan testimoni dari pelanggan serta tombol untuk melihat kembali arsip foto *Quality Report*.
@@ -133,17 +143,28 @@ Tombol aksi lapangan di kartu tugas aktif berevolusi secara sekuensial mutlak se
 4. **Saat status `Sedang Dikerjakan`**:
    - Tombol Utama: **"Tuntaskan & Buat Laporan Mutu (Quality Report)"** $\rightarrow$ Membuka form `QualityReportScreen`.
 
-### 3.3 Ketahanan Operasional Lapangan (*Resilience, Debouncing & Image Handling*)
-1. **Pencegahan Mutasi Ganda (*Double-Tap Debouncing*)**:
+### 3.3 Penanganan Kondisi Nir-Data (*Zero-Data & Empty State UX*)
+- Jika petugas tidak memiliki tugas aktif hari ini:
+  - Ditampilkan kartu ilustrasi ramah:
+    *"Belum ada tugas aktif saat ini. Anda sedang dalam status siaga (Aktif). Tarik layar ke bawah untuk memeriksa pesanan baru."*
+- Jika riwayat tugas masih kosong:
+  - Ditampilkan pesan edukatif: *"Riwayat pekerjaan Anda akan dicatat di sini setelah Anda menyelesaikan laporan mutu pekerjaan pertama Anda."*
+
+### 3.4 Ketahanan Lapangan & Deep-Link Navigasi Peta
+1. **Deep-Link Peta dengan Robust Fallback**:
+   - Tombol "Buka Navigasi / Peta" mencoba meluncurkan skema peta native:
+     `geo:0,0?q=${Uri.encodeComponent(alamat)}`.
+   - Jika aplikasi peta native tidak terinstal, secara otomatis beralih ke URL web browser:
+     `https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(alamat)}` menggunakan `LaunchMode.externalApplication`.
+2. **Pencegahan Mutasi Ganda (*Double-Tap Debouncing*)**:
    - Seluruh tombol aksi transisi status lapangan dinonaktifkan secara visual (*disabled state*) dan menampilkan *CircularProgressIndicator* mini saat panggilan jaringan sedang berlangsung.
-2. **Kompresi Gambar Sisi Klien**:
+3. **Kompresi Gambar Sisi Klien & Retensi Formulir**:
    - Foto kamera/galeri otomatis dikompresi menjadi format JPEG/WebP dengan ukuran 1–2 MB sebelum diunggah ke Supabase Storage bucket `quality-reports`.
-3. **Retensi Formulir (*Offline Resilience*)**:
    - Jika koneksi internet terputus saat proses pengiriman Quality Report, berkas foto yang telah dipilih dan centang checklist tidak akan hilang dari layar. Tombol otomatis berubah menjadi mode **"Coba Kirim Ulang (*Retry*)"**.
 
 ---
 
-## 4. Spesifikasi Dasbor Administrator (*Admin Dashboard*) — Penyempurnaan Bagian 3
+## 4. Spesifikasi Dasbor Administrator (*Admin Dashboard*)
 
 ### 4.1 Komponen & Tata Letak Layar (`AdminDashboardScreen`)
 Dasbor ini berfungsi sebagai **Menara Pengawas Operasional (*Operational Control Tower*)**:
@@ -180,9 +201,14 @@ Saat Admin menekan tombol *"Tugaskan Petugas"*:
 ### 4.4 Efisiensi Pengambilan Data Paralel (*Parallel Data Fetching*)
 - Layar Admin menggunakan `Future.wait([orderService.getOrders(), cleanerService.getCleaners()])` untuk memangkas *network latency* hingga 50% dibandingkan pemanggilan berurutan (*sequential waterfall*).
 
+### 4.5 Penanganan Kondisi Nir-Data Admin (*Zero-Data UX*)
+- Jika tab "Butuh Tindakan" kosong:
+  - Ditampilkan kartu status hijau tenang:
+    *"Operasional Terkendali. Tidak ada pesanan yang memerlukan konfirmasi pembayaran atau penugasan petugas saat ini."*
+
 ---
 
-## 5. Pembersihan Antarmuka Pelanggan (*Customer UI Cleanup*) — Penyempurnaan Bagian 4
+## 5. Pembersihan Antarmuka Pelanggan (*Customer UI Cleanup*)
 
 ### 5.1 Penghapusan Widget Bantuan Simulasi
 1. Widget tombol mengambang `OperationalSimulationSheet` pada [`mobile/lib/screens/order_tracking_screen.dart`](file:///c:/Users/62859/Documents/Skripsi/Resik.in/mobile/lib/screens/order_tracking_screen.dart) **dihapus secara permanen**.
@@ -196,7 +222,7 @@ Karena prototipe ini berjalan pada arsitektur HTTP REST API (tanpa WebSocket ser
    - Selama pesanan berstatus aktif (`Menunggu Konfirmasi`, `Dikonfirmasi`, `Petugas Ditugaskan`, `Menuju Lokasi`, `Tiba di Lokasi`, `Sedang Dikerjakan`), sebuah timer ringan melakukan polling setiap **10 detik**.
    - **Senior Software Engineer Safeguard**:
      - Polling otomatis dihentikan (*cancel timer*) saat pesanan mencapai status terminal (`Selesai` atau `Dibatalkan`).
-     - Polling otomatis dihentikan saat layar di-`dispose()` (pengguna keluar dari halaman pelacakan) atau saat aplikasi diminimalkan ke latar belakang (*AppLifecycleState.paused*) untuk menghemat baterai dan kuota data ponsel.
+     - Polling otomatis dihentikan saat layar di-`dispose()` (pengguna keluar dari halaman pelacakan) atau saat aplikasi diminimalkan ke latar belakang (*AppLifecycleState.paused*) dengan mendaftarkan `WidgetsBindingObserver`.
 3. **Retensi Tampilan Optimistik (*Optimistic View Retention*)**:
    - Jika terjadi kegagalan jaringan saat polling berlangsung, UI tidak akan mengosongkan layar (*no blank screen*). State terakhir stepper 7 tahapan tetap ditampilkan, disertai pemberitahuan *SnackBar* halus di bagian bawah.
 
@@ -209,7 +235,78 @@ Saat status pesanan terdeteksi telah berubah menjadi `Selesai`:
 
 ---
 
-## 6. Rencana Pengujian Otomatis & Verifikasi (*Testing Matrix*)
+## 6. Penanganan Kondisi Batas & Konflik Antar Aktor (*Edge Cases & Race Conditions*)
+
+| Skenario Konflik | Perilaku Backend | Respons Frontend Mobile | Pengalaman Pengguna (UX) |
+| :--- | :--- | :--- | :--- |
+| **Kasus 1: Reassign Petugas saat Pelanggan Melacak** | Backend mencatat pergantian petugas di `orders.cleaner_id` & `status_logs`. | Saat polling 10 detik berikutnya atau saat refresh, `OrderTrackingScreen` mendeteksi perubahan `cleaner_id`. | Kartu profil petugas di layar pelanggan berganti ke nama & foto petugas baru secara mulus. |
+| **Kasus 2: Cleaner Memperbarui Status Pesanan yang Dibatalkan Admin** | Backend menolak request dengan status HTTP 400 (`INVALID_STATUS_TRANSITION`). | `CleanerDashboardScreen` menangkap error code tersebut. | Tampil dialog peringatan: *"Pesanan ini telah dibatalkan oleh Admin/Pelanggan."* Kartu tugas otomatis dihapus dari tab aktif. |
+| **Kasus 3: Pelanggan Membayar saat Admin Membuka Tab Tindakan** | Backend memperbarui `status_pembayaran = 'Sudah Bayar'` via `POST /api/orders/:id/pay`. | Saat Admin menarik layar (*Pull-to-Refresh*), data terbaru dimuat. | Badge pesanan berubah menjadi kuning aktif, tombol "Konfirmasi Pesanan" terbuka untuk diklik. |
+| **Kasus 4: Gangguan Jaringan saat Upload Quality Report** | Supabase Storage gagal menerima file multipart. | Form `QualityReportScreen` mempertahankan data foto & checklist di memori. | Tampil tombol **"Coba Kirim Ulang (Retry)"** tanpa memaksa petugas mengulang foto dari awal. |
+
+---
+
+## 7. Skenario Demonstrasi Sidang Skripsi (*Golden Path Walkthrough*)
+
+Untuk memberikan kesan profesional dan sistematis saat demonstrasi di depan dosen penguji skripsi, urutan demo dijalankan sebagai berikut:
+
+```
+[LANGKAH 1: PELANGGAN]
+1. Buka aplikasi Resik.in (Role: Customer).
+2. Buat pesanan baru layanan Bersih Rumah (Jadwal besok 09:00 WIB, durasi 2 jam).
+3. Lakukan simulasi pembayaran -> Status: "Menunggu Konfirmasi".
+4. Buka layar pelacakan (OrderTrackingScreen).
+
+[LANGKAH 2: ADMINISTRATOR]
+1. Buka tab Akun -> Role Switcher -> Pilih "Administrator".
+2. Aplikasi otomatis membuka AdminDashboardScreen.
+3. Tab "Butuh Tindakan": Lihat pesanan baru yang sudah lunas.
+4. Klik tombol "Konfirmasi Pesanan" -> Status: "Dikonfirmasi".
+5. Klik tombol "Tugaskan Petugas" -> SmartAssignmentSheet terbuka.
+6. Tunjukkan urutan rekomendasi cerdas dan penanda bentrok jadwal.
+7. Pilih petugas "Cecep" -> Status: "Petugas Ditugaskan".
+
+[LANGKAH 3: PETUGAS LAPANGAN]
+1. Buka tab Akun -> Role Switcher -> Pilih "Cleaner (Cecep)".
+2. Aplikasi otomatis membuka CleanerDashboardScreen.
+3. Tab "Tugas Aktif": Tunjukkan kartu tugas yang baru ditugaskan.
+4. Tunjukkan tombol navigasi peta lokasi pelanggan.
+5. Klik "Mulai Berangkat" -> Status: "Menuju Lokasi".
+6. Klik "Saya Sudah Tiba di Lokasi" -> Status: "Tiba di Lokasi".
+7. Klik "Mulai Pengerjaan" -> Status: "Sedang Dikerjakan".
+8. Klik "Tuntaskan & Buat Laporan Mutu" -> Form QualityReportScreen terbuka.
+9. Ambil/pilih foto Before & After, centang checklist mutu -> Kirim Laporan Mutu -> Status: "Selesai".
+
+[LANGKAH 4: VERIFIKASI PELANGGAN & ULASAN]
+1. Buka tab Akun -> Role Switcher -> Pilih kembali "Customer".
+2. Buka pesanan aktif -> Tunjukkan bahwa status sudah otomatis "Selesai".
+3. Klik "Lihat Laporan Mutu" -> Tunjukkan foto Before/After pengerjaan petugas Cecep.
+4. Klik "Beri Rating & Ulasan" -> Berikan bintang 5 dan ulasan pujian -> Kirim Ulasan.
+5. Selesai (Siklus hidup 7 status tertutup sempurna).
+```
+
+---
+
+## 8. Skema Database & Data Linking (SQL Migration)
+
+Untuk memastikan data petugas kebersihan terhubung dengan akun profil Supabase:
+```sql
+-- Memastikan kolom user_id tersedia di tabel public.cleaners
+ALTER TABLE public.cleaners 
+ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+-- Memastikan indeks pencarian cepat untuk query berbasis user_id
+CREATE INDEX IF NOT EXISTS idx_cleaners_user_id ON public.cleaners(user_id);
+
+-- Menautkan cleaner Cecep ke profil cleaner aktif untuk keperluan demonstrasi
+UPDATE public.cleaners 
+SET user_id = 'c1eane11-0000-4000-a000-000000000001' 
+WHERE nama = 'Cecep' AND user_id IS NULL;
+```
+
+---
+
+## 9. Rencana Pengujian Otomatis & Verifikasi (*Testing Matrix*)
 
 Pengujian otomatis wajib lulus 100% tanpa regresi:
 1. **Unit & Widget Test Dashboard Baru**:
@@ -222,7 +319,7 @@ Pengujian otomatis wajib lulus 100% tanpa regresi:
 
 ---
 
-## 7. Rencana Struktur Berkas Proyek
+## 10. Rencana Struktur Berkas Proyek
 
 ```text
 mobile/lib/
