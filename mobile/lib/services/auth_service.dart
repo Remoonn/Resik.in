@@ -16,6 +16,13 @@ class AuthService {
   UserModel? get currentUser => currentUserNotifier.value;
   bool get isAuthenticated => currentUser != null;
 
+  Map<String, String> get authHeaders => {
+    'Content-Type': 'application/json',
+    if (currentUser != null && currentUser!.id.isNotEmpty) 'x-user-id': currentUser!.id,
+    if (currentUser != null && currentUser!.role.isNotEmpty) 'x-user-role': currentUser!.role,
+    if (currentUser?.cleanerId != null && currentUser!.cleanerId!.isNotEmpty) 'x-cleaner-id': currentUser!.cleanerId!,
+  };
+
   static bool _isSupabaseInitialized = false;
 
   /// Inisialisasi resmi Supabase SDK dan listener sesi

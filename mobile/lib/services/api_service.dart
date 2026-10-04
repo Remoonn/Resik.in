@@ -4,6 +4,7 @@ import '../constants.dart';
 import '../models/service_model.dart';
 import '../models/order_model.dart';
 import '../models/cleaner_model.dart';
+import 'auth_service.dart';
 
 class ApiService {
   static final http.Client _client = http.Client();
@@ -30,10 +31,16 @@ class ApiService {
   /// Membuat pesanan baru (POST /api/orders)
   static Future<Map<String, dynamic>> createOrder(Map<String, dynamic> payload) async {
     try {
+      final user = AuthService().currentUser;
       final url = Uri.parse('${ApiConstants.baseUrl}/orders');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (user?.id != null && user!.id.isNotEmpty) 'x-user-id': user.id,
+        if (user?.role != null && user!.role.isNotEmpty) 'x-user-role': user.role,
+      };
       final response = await _client.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 10));
 
@@ -154,19 +161,59 @@ class ApiService {
     }
   }
 
-  /// Mengambil daftar pesanan pelanggan (GET /api/orders)
-  static Future<List<OrderModel>> fetchOrders({String? status}) async {
+  /// Mengambil daftar pesanan (GET /api/orders) dengan dukungan multi-role (Customer, Cleaner, Admin)
+  static Future<List<OrderModel>> fetchOrders({
+    String? status,
+    String? customerId,
+    String? cleanerId,
+    String? role,
+  }) async {
     try {
+      final user = AuthService().currentUser;
+      final effectiveRole = role ?? user?.role ?? 'customer';
+      final effectiveUserId = customerId ?? (effectiveRole == 'cleaner' ? null : user?.id);
+      final effectiveCleanerId = cleanerId ?? (effectiveRole == 'cleaner' ? user?.cleanerId : null);
+
+      final queryParams = <String, String>{};
+      if (status != null && status.isNotEmpty) {
+        queryParams['status'] = status;
+      }
+      if (effectiveUserId != null && effectiveUserId.isNotEmpty) {
+        queryParams['customer_id'] = effectiveUserId;
+      }
+      if (effectiveCleanerId != null && effectiveCleanerId.isNotEmpty) {
+        queryParams['cleaner_id'] = effectiveCleanerId;
+      }
+      if (effectiveRole.isNotEmpty) {
+        queryParams['role'] = effectiveRole;
+      }
+
       final uri = Uri.parse('${ApiConstants.baseUrl}/orders').replace(
-        queryParameters: status != null ? {'status': status} : null,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-      final response = await _client.get(uri).timeout(const Duration(seconds: 10));
+
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (user != null && user.id.isNotEmpty) 'x-user-id': user.id,
+        if (effectiveRole.isNotEmpty) 'x-user-role': effectiveRole,
+        if (effectiveCleanerId != null && effectiveCleanerId.isNotEmpty) 'x-cleaner-id': effectiveCleanerId,
+      };
+
+      final response = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         if (body['success'] == true && body['data'] is List) {
           final List list = body['data'];
-          return list.map((item) => OrderModel.fromJson(item)).toList();
+          final allOrders = list.map((item) => OrderModel.fromJson(item)).toList();
+
+          // Client-side safety filter: isolasi pesanan pelanggan vs petugas
+          if (effectiveRole == 'cleaner' && effectiveCleanerId != null && effectiveCleanerId.isNotEmpty) {
+            return allOrders.where((o) => o.cleanerId == effectiveCleanerId).toList();
+          } else if (effectiveRole != 'admin' && effectiveUserId != null && effectiveUserId.isNotEmpty) {
+            return allOrders.where((o) => o.customerId == effectiveUserId).toList();
+          }
+          return allOrders;
         }
       }
       return <OrderModel>[];
