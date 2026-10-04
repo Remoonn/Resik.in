@@ -4,6 +4,7 @@ import '../models/cleaner_model.dart';
 import '../models/order_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/role_switcher_sheet.dart';
 import '../widgets/smart_assignment_sheet.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -272,6 +273,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF006194)),
+            tooltip: 'Ganti Peran Demonstrasi',
+            onPressed: () => RoleSwitcherSheet.show(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF0B1C30)),
             tooltip: 'Segarkan',

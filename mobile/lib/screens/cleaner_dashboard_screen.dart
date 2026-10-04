@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../constants.dart';
 import '../models/order_model.dart';
-import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/role_switcher_sheet.dart';
 import 'quality_report_screen.dart';
 
 class CleanerDashboardScreen extends StatefulWidget {
@@ -195,6 +194,11 @@ class _CleanerDashboardScreenState extends State<CleanerDashboardScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF006194)),
+            tooltip: 'Ganti Peran Demonstrasi',
+            onPressed: () => RoleSwitcherSheet.show(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF0B1C30)),
             tooltip: 'Segarkan',

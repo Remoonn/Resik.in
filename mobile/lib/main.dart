@@ -5,10 +5,13 @@ import 'models/service_model.dart';
 import 'models/user_model.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
+import 'screens/admin_dashboard_screen.dart';
 import 'screens/booking_screen.dart';
+import 'screens/cleaner_dashboard_screen.dart';
 import 'screens/order_tracking_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/role_switcher_sheet.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +45,13 @@ class AuthGate extends StatelessWidget {
       valueListenable: AuthService.currentUserNotifier,
       builder: (context, user, _) {
         if (user != null) {
-          return const HomeScreen();
+          if (user.isAdmin) {
+            return AdminDashboardScreen(key: ValueKey('admin_${user.id}'));
+          }
+          if (user.isCleaner) {
+            return CleanerDashboardScreen(key: ValueKey('cleaner_${user.id}'));
+          }
+          return HomeScreen(key: ValueKey('customer_${user.id}'));
         }
         return const WelcomeScreen();
       },
@@ -78,6 +87,19 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadServices();
     _loadOrders();
+    AuthService.currentUserNotifier.addListener(_handleAuthChange);
+  }
+
+  void _handleAuthChange() {
+    if (mounted) {
+      _loadOrders();
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_handleAuthChange);
+    super.dispose();
   }
 
   void _loadOrders() {
@@ -929,6 +951,9 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: (index) {
             setState(() {
               _currentBottomNavIndex = index;
+              if (index == 1) {
+                _ordersFuture = ApiService.fetchOrders();
+              }
             });
           },
           backgroundColor: AppColors.surfaceContainerLowest,
@@ -1648,17 +1673,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.science_outlined, color: AppColors.tertiary),
-                    title: const Text('Simulasi Operasional', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.emeraldLight,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text('Aktif (Testing)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.emeraldDark)),
-                    ),
+                    leading: const Icon(Icons.swap_horiz_rounded, color: AppColors.secondary),
+                    title: const Text('Ganti Peran Demonstrasi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    subtitle: const Text('Uji coba antarmuka Pelanggan, Petugas, Admin', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                    trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.onSurfaceVariant),
                     contentPadding: EdgeInsets.zero,
+                    onTap: () => RoleSwitcherSheet.show(context),
                   ),
                 ],
               ),
