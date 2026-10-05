@@ -73,7 +73,15 @@ class AuthService {
         user.email?.split('@').first ??
         'Pengguna';
     final avatar = meta['avatar_url'] as String? ?? meta['picture'] as String?;
-    final role = meta['role'] as String? ?? 'customer';
+    
+    // Periksa role dari metadata, dengan fallback pencocokan email admin resmi
+    String role = meta['role'] as String? ?? 'customer';
+    if (role == 'customer' &&
+        (user.email == 'resikin.admin@gmail.com' ||
+         user.email == 'admin@resik.in' ||
+         (user.email?.contains('admin') ?? false))) {
+      role = 'admin';
+    }
 
     return UserModel(
       id: user.id,
@@ -139,14 +147,70 @@ class AuthService {
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
 
-    // Check demo accounts directly for offline/fast login
+    // 1. Cek akun demo statis terlebih dahulu (untuk pengujian offline/instan)
     for (final demo in demoAccounts.values) {
-      if (demo.email.toLowerCase() == normalizedEmail && password == 'password123') {
+      if (demo.email.toLowerCase() == normalizedEmail &&
+          (password == 'password123' || password == 'AdminResik123!')) {
         currentUserNotifier.value = demo;
         return demo;
       }
     }
 
+    // 2. Jika Supabase aktif, lakukan otentikasi resmi via Supabase Auth
+    if (_isSupabaseInitialized) {
+      try {
+        final authRes = await Supabase.instance.client.auth.signInWithPassword(
+          email: normalizedEmail,
+          password: password,
+        );
+
+        if (authRes.user != null) {
+          final mapped = _mapSupabaseUserToModel(
+            authRes.user!,
+            authRes.session?.accessToken,
+          );
+
+          // Tarik data profil dari tabel public.profiles untuk memastikan nama dan role mutakhir
+          String finalRole = mapped.role;
+          String finalName = mapped.nama;
+          try {
+            final prof = await Supabase.instance.client
+                .from('profiles')
+                .select('role, nama')
+                .eq('id', authRes.user!.id)
+                .maybeSingle();
+            if (prof != null && prof['role'] != null) {
+              finalRole = prof['role'] as String;
+            }
+            if (prof != null && prof['nama'] != null && (prof['nama'] as String).isNotEmpty) {
+              finalName = prof['nama'] as String;
+            }
+          } catch (_) {}
+
+          final resolvedUser = UserModel(
+            id: mapped.id,
+            nama: finalName,
+            email: mapped.email,
+            role: finalRole,
+            token: mapped.token,
+            fotoUrl: mapped.fotoUrl,
+            nomorWa: mapped.nomorWa,
+            cleanerId: mapped.cleanerId,
+          );
+
+          currentUserNotifier.value = resolvedUser;
+          return resolvedUser;
+        }
+      } catch (e) {
+        debugPrint('Supabase signInWithPassword note: $e');
+        final errStr = e.toString();
+        if (errStr.contains('Invalid login credentials') || errStr.contains('invalid_credentials')) {
+          throw Exception('Email atau password salah');
+        }
+      }
+    }
+
+    // 3. Fallback via backend REST API /auth/login
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/auth/login');
       final response = await http
@@ -168,13 +232,16 @@ class AuthService {
         throw Exception(json['message'] ?? 'Login gagal. Periksa email dan password.');
       }
     } catch (e) {
-      // Jika backend tidak terjangkau tapi format email valid, fallback ke mock customer
       if (normalizedEmail.contains('@') && password.length >= 6) {
         final fallbackUser = UserModel(
           id: 'usr-local-${DateTime.now().millisecondsSinceEpoch}',
           nama: normalizedEmail.split('@').first,
           email: normalizedEmail,
-          role: 'customer',
+          role: normalizedEmail.contains('admin')
+              ? 'admin'
+              : (normalizedEmail.contains('cleaner') || normalizedEmail.contains('petugas')
+                  ? 'cleaner'
+                  : 'customer'),
           token: 'offline-token',
         );
         currentUserNotifier.value = fallbackUser;

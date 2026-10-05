@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { inMemoryStore } from '../lib/supabase.js';
+import { inMemoryStore, supabase, supabaseAdmin, isLiveSupabase } from '../lib/supabase.js';
 
 const router = Router();
 
 // POST /api/auth/login — Otentikasi pengguna dan pemuatan profil peran
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -15,9 +15,45 @@ router.post('/login', (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const user = inMemoryStore.users.find(
+  let user = inMemoryStore.users.find(
     (u) => u.email.toLowerCase() === normalizedEmail && u.password === password
   );
+
+  // Jika belum cocok di inMemory dan Supabase aktif, otentikasi via Supabase Auth
+  if (!user && isLiveSupabase()) {
+    try {
+      const { data: supaAuth, error: supaErr } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password
+      });
+
+      if (!supaErr && supaAuth?.user) {
+        const supaUser = supaAuth.user;
+        const meta = supaUser.user_metadata || {};
+        let role = meta.role || 'customer';
+        let nama = meta.full_name || meta.name || normalizedEmail.split('@')[0];
+
+        try {
+          const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('role, nama')
+            .eq('id', supaUser.id)
+            .maybeSingle();
+          if (profile?.role) role = profile.role;
+          if (profile?.nama) nama = profile.nama;
+        } catch (_) {}
+
+        user = {
+          id: supaUser.id,
+          nama,
+          email: supaUser.email,
+          role,
+          nomor_wa: meta.nomor_wa || '-',
+          token: supaAuth.session?.access_token || `sb-${supaUser.id}`
+        };
+      }
+    } catch (_) {}
+  }
 
   if (!user) {
     return res.status(401).json({
@@ -28,7 +64,7 @@ router.post('/login', (req, res) => {
 
   // Generate safe user object without password
   const { password: _, ...userSafe } = user;
-  const token = `resik-token-${user.id}-${Date.now()}`;
+  const token = user.token || `resik-token-${user.id}-${Date.now()}`;
 
   return res.status(200).json({
     success: true,
