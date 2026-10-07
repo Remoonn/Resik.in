@@ -4,7 +4,6 @@ import '../models/cleaner_model.dart';
 import '../models/order_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import '../widgets/role_switcher_sheet.dart';
 import '../widgets/smart_assignment_sheet.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -274,11 +273,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF006194)),
-            tooltip: 'Ganti Peran Demonstrasi',
-            onPressed: () => RoleSwitcherSheet.show(context),
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF0B1C30)),
             tooltip: 'Segarkan',
             onPressed: _loadData,
@@ -305,74 +299,87 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 unselectedLabelColor: const Color(0xFF707881),
                 indicatorColor: const Color(0xFF006194),
                 indicatorWeight: 3,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                 labelStyle: const TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
                 tabs: [
                   Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Butuh Tindakan'),
-                        if (_actionRequiredOrders.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFBA1A1A),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${_actionRequiredOrders.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Butuh Tindakan'),
+                          if (_actionRequiredOrders.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFBA1A1A),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${_actionRequiredOrders.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                   Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Monitoring'),
-                        if (_monitoringOrders.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF006194),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${_monitoringOrders.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Monitoring'),
+                          if (_monitoringOrders.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF006194),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${_monitoringOrders.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                   Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Tim Petugas'),
-                        if (_cleaners.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Text('(${_cleaners.length})', style: const TextStyle(fontSize: 11)),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Tim Petugas'),
+                          if (_cleaners.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            Text('(${_cleaners.length})', style: const TextStyle(fontSize: 11)),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ],

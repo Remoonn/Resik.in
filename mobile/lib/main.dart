@@ -11,7 +11,6 @@ import 'screens/cleaner_dashboard_screen.dart';
 import 'screens/order_tracking_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
-import 'widgets/role_switcher_sheet.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1670,15 +1669,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: const Text('Versi Aplikasi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     trailing: const Text('1.0.0 (V1)', style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13)),
                     contentPadding: EdgeInsets.zero,
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.swap_horiz_rounded, color: AppColors.secondary),
-                    title: const Text('Ganti Peran Demonstrasi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                    subtitle: const Text('Uji coba antarmuka Pelanggan, Petugas, Admin', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
-                    trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.onSurfaceVariant),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => RoleSwitcherSheet.show(context),
                   ),
                 ],
               ),
