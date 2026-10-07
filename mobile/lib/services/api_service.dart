@@ -171,7 +171,7 @@ class ApiService {
     try {
       final user = AuthService().currentUser;
       final effectiveRole = role ?? user?.role ?? 'customer';
-      final effectiveUserId = customerId ?? (effectiveRole == 'cleaner' ? null : user?.id);
+      final effectiveUserId = customerId ?? ((effectiveRole == 'cleaner' || effectiveRole == 'admin') ? null : user?.id);
       final effectiveCleanerId = cleanerId ?? (effectiveRole == 'cleaner' ? user?.cleanerId : null);
 
       final queryParams = <String, String>{};

@@ -52,7 +52,10 @@ router.get('/', async (req, res) => {
   // Isolasi Peran RBAC (SOT docs/AGENTS.md & docs/API.md)
   if (role === 'admin') {
     // Admin memiliki hak membaca seluruh pesanan, atau filter spesifik jika diminta
-    if (req.query.customer_id) filters.customer_id = req.query.customer_id;
+    const adminId = req.headers['x-user-id'] || req.query.user_id;
+    if (req.query.customer_id && req.query.customer_id !== adminId) {
+      filters.customer_id = req.query.customer_id;
+    }
     if (req.query.cleaner_id) filters.cleaner_id = req.query.cleaner_id;
   } else if (role === 'cleaner' || cleanerId) {
     // Cleaner hanya membaca pesanan yang ditugaskan padanya
