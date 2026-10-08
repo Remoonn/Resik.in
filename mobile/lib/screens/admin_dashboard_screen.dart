@@ -150,6 +150,65 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     }
   }
 
+  CleanerModel? _getPreferredCleaner(OrderModel order) {
+    if (order.preferensiPetugasId == null || order.preferensiPetugasId!.isEmpty) {
+      return null;
+    }
+    for (final c in _cleaners) {
+      if (c.id == order.preferensiPetugasId) {
+        return c;
+      }
+    }
+    if (order.cleaner != null && order.cleaner!.id == order.preferensiPetugasId) {
+      return order.cleaner;
+    }
+    return null;
+  }
+
+  Future<void> _assignCleanerDirectly(OrderModel order, CleanerModel cleaner) async {
+    if (_processingOrderId != null) return;
+    setState(() => _processingOrderId = order.id);
+
+    try {
+      final res = await ApiService.assignCleaner(
+        order.id,
+        cleaner.id,
+        role: 'admin',
+      );
+
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Petugas ${cleaner.nama} (Pilihan Pelanggan) berhasil ditugaskan!'),
+            backgroundColor: const Color(0xFF006947),
+          ),
+        );
+        await _loadData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Gagal menugaskan petugas'),
+            backgroundColor: const Color(0xFFBA1A1A),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: const Color(0xFFBA1A1A),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _processingOrderId = null);
+      }
+    }
+  }
+
   Future<void> _openSmartAssignment(OrderModel order) async {
     final assigned = await showModalBottomSheet<bool>(
       context: context,
@@ -519,6 +578,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     final isDikonfirmasi = order.statusPekerjaan == 'Dikonfirmasi';
     final isLunas = order.statusPembayaran == 'Sudah Bayar';
     final isProcessing = _processingOrderId == order.id;
+    final prefCleaner = _getPreferredCleaner(order);
+    final hasPreference = order.preferensiPetugasId != null && order.preferensiPetugasId!.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -584,6 +645,57 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12, color: Color(0xFF3F4850)),
           ),
+          const SizedBox(height: 10),
+
+          // Petugas Preference Info Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: hasPreference ? const Color(0xFFFFF8E6) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: hasPreference ? const Color(0xFFFFD56B) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  hasPreference ? Icons.stars_rounded : Icons.alt_route_rounded,
+                  size: 16,
+                  color: hasPreference ? const Color(0xFFB78103) : const Color(0xFF64748B),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: hasPreference ? 'Pilihan Pelanggan: ' : 'Alokasi Petugas: ',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: hasPreference ? const Color(0xFF856404) : const Color(0xFF475569),
+                          ),
+                        ),
+                        TextSpan(
+                          text: hasPreference
+                              ? (prefCleaner?.nama ?? 'Petugas Spesifik')
+                              : 'Pilih Otomatis oleh Admin',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: hasPreference ? const Color(0xFF856404) : const Color(0xFF0B1C30),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const Divider(height: 20),
 
           // Actions
@@ -618,17 +730,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
               ),
           ] else if (isDikonfirmasi) ...[
-            ElevatedButton.icon(
-              onPressed: () => _openSmartAssignment(order),
-              icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-              label: const Text('Tugaskan Petugas'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006194),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(42),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            if (prefCleaner != null) ...[
+              ElevatedButton.icon(
+                onPressed: isProcessing ? null : () => _assignCleanerDirectly(order, prefCleaner),
+                icon: isProcessing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Icon(Icons.how_to_reg_rounded, size: 16),
+                label: Text(
+                  'Tugaskan ${prefCleaner.nama} (Pilihan Pelanggan)',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF006194),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(42),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: isProcessing ? null : () => _openSmartAssignment(order),
+                icon: const Icon(Icons.tune_rounded, size: 14),
+                label: const Text('Ganti / Pilih Petugas Lain'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF006194),
+                  minimumSize: const Size.fromHeight(38),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  side: const BorderSide(color: Color(0xFFCCE5FF)),
+                ),
+              ),
+            ] else ...[
+              ElevatedButton.icon(
+                onPressed: () => _openSmartAssignment(order),
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                label: const Text('Tugaskan Petugas'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF006194),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(42),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
           ],
         ],
       ),

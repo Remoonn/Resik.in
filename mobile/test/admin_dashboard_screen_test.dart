@@ -93,4 +93,61 @@ void main() {
     // Verify confirmed order has assign button
     expect(find.text('Tugaskan Petugas'), findsOneWidget);
   });
+
+  testWidgets('AdminDashboardScreen displays preferred cleaner badge and 1-click assign button for customer choice', (WidgetTester tester) async {
+    final orderWithPref = OrderModel(
+      id: 'ord-pref-01',
+      serviceId: 'srv-02',
+      serviceName: 'Pembersihan Kos',
+      orderCode: 'RSK-20261008-069',
+      alamatLengkap: 'Jl. Durian no 79',
+      patokanLokasi: 'Pagar Putih',
+      luasArea: '20',
+      tanggalLayanan: '2026-10-08',
+      startTime: '11:00',
+      duration: 2,
+      endTime: '13:00',
+      hargaSaatBooking: 75000,
+      totalBiaya: 75000,
+      statusPekerjaan: 'Dikonfirmasi',
+      statusPembayaran: 'Sudah Bayar',
+      preferensiPetugasId: 'cln-siti',
+      createdAt: '2026-10-08T08:00:00Z',
+    );
+
+    final cleaners = [
+      CleanerModel(
+        id: 'cln-siti',
+        nama: 'Siti Aminah',
+        ratingRataRata: 4.8,
+        totalUlasan: 20,
+        totalPekerjaan: 25,
+        pengalamanTahun: 5,
+        tingkatKepuasan: 98,
+        ketepatanWaktu: 95,
+        statusOperasional: 'Aktif',
+        keahlian: ['kos', 'rumah'],
+        sertifikasi: [],
+        ulasan: [],
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminDashboardScreen(
+          ordersLoader: () async => [orderWithPref],
+          cleanersLoader: () async => cleaners,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify preference badge
+    expect(find.textContaining('Pilihan Pelanggan:'), findsOneWidget);
+    expect(find.textContaining('Siti Aminah'), findsWidgets);
+
+    // Verify 1-click assign button
+    expect(find.text('Tugaskan Siti Aminah (Pilihan Pelanggan)'), findsOneWidget);
+    expect(find.text('Ganti / Pilih Petugas Lain'), findsOneWidget);
+  });
 }

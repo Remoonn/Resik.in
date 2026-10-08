@@ -99,4 +99,97 @@ void main() {
     expect(find.text('Candra Pratama'), findsOneWidget);
     expect(find.text('Jadwal Bentrok'), findsOneWidget);
   });
+
+  testWidgets('SmartAssignmentSheet pins customer preferred cleaner to index 0', (WidgetTester tester) async {
+    final order = OrderModel(
+      id: 'ord-test-02',
+      serviceId: 'srv-01',
+      serviceName: 'Bersih Kos',
+      orderCode: 'RSK-20261008-069',
+      alamatLengkap: 'Jl. Durian No. 79',
+      patokanLokasi: 'Pagar Putih',
+      luasArea: '20',
+      tanggalLayanan: '2026-10-08',
+      startTime: '11:00',
+      duration: 2,
+      endTime: '13:00',
+      hargaSaatBooking: 75000,
+      totalBiaya: 75000,
+      statusPekerjaan: 'Dikonfirmasi',
+      statusPembayaran: 'Sudah Bayar',
+      preferensiPetugasId: 'cln-siti',
+      createdAt: '2026-10-08T08:00:00Z',
+    );
+
+    // Budi Santoso has higher score, but Siti Aminah is preferred
+    final recommendations = [
+      CleanerRecommendation(
+        cleaner: CleanerModel(
+          id: 'cln-budi',
+          nama: 'Budi Santoso',
+          ratingRataRata: 4.9,
+          totalUlasan: 45,
+          totalPekerjaan: 50,
+          pengalamanTahun: 3,
+          tingkatKepuasan: 98,
+          ketepatanWaktu: 100,
+          statusOperasional: 'Aktif',
+          keahlian: ['kos'],
+          sertifikasi: [],
+          ulasan: [],
+        ),
+        score: CleanerScoreModel(
+          skillScore: 40,
+          availScore: 30,
+          ratingScore: 20,
+          effectiveRating: 4.9,
+          isProvisionalRating: false,
+          expScore: 10,
+          totalScore: 94.0,
+          matchBadge: 'Sangat Cocok',
+        ),
+      ),
+      CleanerRecommendation(
+        cleaner: CleanerModel(
+          id: 'cln-siti',
+          nama: 'Siti Aminah',
+          ratingRataRata: 4.8,
+          totalUlasan: 20,
+          totalPekerjaan: 25,
+          pengalamanTahun: 5,
+          tingkatKepuasan: 98,
+          ketepatanWaktu: 95,
+          statusOperasional: 'Aktif',
+          keahlian: ['kos'],
+          sertifikasi: [],
+          ulasan: [],
+        ),
+        score: CleanerScoreModel(
+          skillScore: 40,
+          availScore: 20,
+          ratingScore: 20,
+          effectiveRating: 4.8,
+          isProvisionalRating: false,
+          expScore: 10,
+          totalScore: 86.0,
+          matchBadge: 'Cocok',
+        ),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SmartAssignmentSheet(
+            order: order,
+            recommendationsLoader: () async => recommendations,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tugaskan Pilihan Pelanggan'), findsOneWidget);
+    expect(find.text('Siti Aminah'), findsOneWidget);
+  });
 }

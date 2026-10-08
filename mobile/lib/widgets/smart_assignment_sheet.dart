@@ -41,6 +41,18 @@ class _SmartAssignmentSheetState extends State<SmartAssignmentSheet> {
           duration: widget.order.duration,
         );
       }
+
+      // Pin preferred cleaner to index 0 if present in recommendations
+      if (widget.order.preferensiPetugasId != null &&
+          widget.order.preferensiPetugasId!.isNotEmpty) {
+        final prefIndex = _recommendations.indexWhere(
+          (r) => r.cleaner.id == widget.order.preferensiPetugasId,
+        );
+        if (prefIndex > 0) {
+          final prefItem = _recommendations.removeAt(prefIndex);
+          _recommendations.insert(0, prefItem);
+        }
+      }
     } catch (_) {
       _recommendations = [];
     } finally {
@@ -163,21 +175,42 @@ class _SmartAssignmentSheetState extends State<SmartAssignmentSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF4FF),
+              color: widget.order.preferensiPetugasId != null
+                  ? const Color(0xFFFFF8E6)
+                  : const Color(0xFFEFF4FF),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFCCE5FF)),
+              border: Border.all(
+                color: widget.order.preferensiPetugasId != null
+                    ? const Color(0xFFFFD56B)
+                    : const Color(0xFFCCE5FF),
+              ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.auto_awesome_rounded, color: Color(0xFF006194), size: 18),
-                SizedBox(width: 10),
+                Icon(
+                  widget.order.preferensiPetugasId != null
+                      ? Icons.stars_rounded
+                      : Icons.auto_awesome_rounded,
+                  color: widget.order.preferensiPetugasId != null
+                      ? const Color(0xFFB78103)
+                      : const Color(0xFF006194),
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Urutan rekomendasi dihitung berdasarkan ketersediaan jadwal (+ buffer 30 mnt), rating, keahlian, dan kepuasan pelanggan.',
+                    widget.order.preferensiPetugasId != null
+                        ? 'Pelanggan memilih petugas khusus untuk pesanan ini. Petugas pilihan disematkan di posisi teratas.'
+                        : 'Urutan rekomendasi dihitung berdasarkan ketersediaan jadwal (+ buffer 30 mnt), rating, keahlian, dan kepuasan pelanggan.',
                     style: TextStyle(
                       fontFamily: 'Plus Jakarta Sans',
                       fontSize: 11,
-                      color: Color(0xFF0B1C30),
+                      color: widget.order.preferensiPetugasId != null
+                          ? const Color(0xFF856404)
+                          : const Color(0xFF0B1C30),
+                      fontWeight: widget.order.preferensiPetugasId != null
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                       height: 1.3,
                     ),
                   ),
@@ -242,7 +275,11 @@ class _SmartAssignmentSheetState extends State<SmartAssignmentSheet> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isBentrok ? const Color(0xFFF9FAFB) : Colors.white,
+        color: isBentrok
+            ? const Color(0xFFF9FAFB)
+            : isCustomerPreferred
+                ? const Color(0xFFF7FAFE)
+                : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isBentrok
@@ -421,9 +458,11 @@ class _SmartAssignmentSheetState extends State<SmartAssignmentSheet> {
                             height: 16,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
-                        : const Text(
-                            'Tugaskan Petugas Ini',
-                            style: TextStyle(
+                        : Text(
+                            isCustomerPreferred
+                                ? 'Tugaskan Pilihan Pelanggan'
+                                : 'Tugaskan Petugas Ini',
+                            style: const TextStyle(
                               fontFamily: 'Plus Jakarta Sans',
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
