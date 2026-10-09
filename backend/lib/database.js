@@ -11,9 +11,21 @@ import {
 
 function normalizeCleaner(cleaner) {
   if (!cleaner) return null;
+  const rawStatus = (cleaner.status_operasional || '').toLowerCase();
+  let status = 'Aktif';
+  if (rawStatus === 'cuti') {
+    status = 'Cuti';
+  } else if (rawStatus === 'nonaktif') {
+    status = 'Nonaktif';
+  } else if (rawStatus === 'sibuk') {
+    status = 'Sibuk';
+  }
   return {
     ...cleaner,
-    status_operasional: (cleaner.status_operasional || '').toLowerCase() === 'aktif' ? 'Aktif' : cleaner.status_operasional
+    total_ulasan: Number(cleaner.total_ulasan) || 0,
+    rating_rata_rata: Number(cleaner.rating_rata_rata) || 0.0,
+    status_operasional: status,
+    account: cleaner.account || null
   };
 }
 
@@ -22,40 +34,134 @@ export const db = {
   async getCleaners() {
     if (isLiveSupabase()) {
       try {
-        const { data, error } = await supabaseAdmin
-          .from('cleaners')
-          .select('*')
-          .order('rating_rata_rata', { ascending: false });
-        if (!error && data && data.length > 0) {
-          return data.map(normalizeCleaner);
+        const [cleanersRes, reviewsRes] = await Promise.all([
+          supabaseAdmin
+            .from('cleaners')
+            .select('*')
+            .order('rating_rata_rata', { ascending: false }),
+          supabaseAdmin
+            .from('reviews')
+            .select('cleaner_id, rating')
+        ]);
+
+        if (!cleanersRes.error && cleanersRes.data && cleanersRes.data.length > 0) {
+          const reviews = reviewsRes.data || [];
+          return cleanersRes.data.map(cleaner => {
+            const cleanerReviews = reviews.filter(r => r.cleaner_id === cleaner.id);
+            const totalUlasan = cleanerReviews.length;
+            let ratingAvg = Number(cleaner.rating_rata_rata) || 5.0;
+            if (totalUlasan > 0) {
+              const sum = cleanerReviews.reduce((acc, r) => acc + Number(r.rating), 0);
+              ratingAvg = Math.round((sum / totalUlasan) * 10) / 10;
+            }
+            return normalizeCleaner({
+              ...cleaner,
+              total_ulasan: totalUlasan,
+              rating_rata_rata: ratingAvg
+            });
+          });
         }
-        if (error) {
-          console.warn('[db.getCleaners] Supabase error:', error.message);
+        if (cleanersRes.error) {
+          console.warn('[db.getCleaners] Supabase error:', cleanersRes.error.message);
         }
       } catch (err) {
         console.warn('[db.getCleaners] Fallback ke in-memory:', err.message);
       }
     }
-    return inMemoryStore.cleaners;
+    return inMemoryStore.cleaners.map(c => {
+      const reviews = (inMemoryStore.reviews || []).filter(r => r.cleaner_id === c.id);
+      return normalizeCleaner({
+        ...c,
+        total_ulasan: c.total_ulasan !== undefined ? c.total_ulasan : reviews.length
+      });
+    });
   },
 
   async getCleanerById(cleanerId) {
     if (!cleanerId) return null;
     if (isLiveSupabase()) {
       try {
-        const { data, error } = await supabaseAdmin
-          .from('cleaners')
-          .select('*')
-          .eq('id', cleanerId)
-          .maybeSingle();
-        if (!error && data) {
-          return normalizeCleaner(data);
+        const [cleanerRes, reviewsRes] = await Promise.all([
+          supabaseAdmin
+            .from('cleaners')
+            .select('*')
+            .eq('id', cleanerId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('reviews')
+            .select('cleaner_id, rating')
+            .eq('cleaner_id', cleanerId)
+        ]);
+
+        if (!cleanerRes.error && cleanerRes.data) {
+          const reviews = reviewsRes.data || [];
+          const totalUlasan = reviews.length;
+          let ratingAvg = Number(cleanerRes.data.rating_rata_rata) || 5.0;
+          if (totalUlasan > 0) {
+            const sum = reviews.reduce((acc, r) => acc + Number(r.rating), 0);
+            ratingAvg = Math.round((sum / totalUlasan) * 10) / 10;
+          }
+          return normalizeCleaner({
+            ...cleanerRes.data,
+            total_ulasan: totalUlasan,
+            rating_rata_rata: ratingAvg
+          });
         }
       } catch (err) {
         console.warn('[db.getCleanerById] Fallback ke in-memory:', err.message);
       }
     }
-    return inMemoryStore.cleaners.find(c => c.id === cleanerId) || null;
+    const memCleaner = inMemoryStore.cleaners.find(c => c.id === cleanerId);
+    if (memCleaner) {
+      const reviews = (inMemoryStore.reviews || []).filter(r => r.cleaner_id === cleanerId);
+      return normalizeCleaner({
+        ...memCleaner,
+        total_ulasan: memCleaner.total_ulasan !== undefined ? memCleaner.total_ulasan : reviews.length
+      });
+    }
+    return null;
+  },
+
+  async updateCleanerStatus(cleanerId, statusOperasional) {
+    if (!cleanerId) return null;
+    const validStatuses = {
+      aktif: 'Aktif',
+      cuti: 'Cuti',
+      nonaktif: 'Nonaktif'
+    };
+    const key = String(statusOperasional || '').toLowerCase();
+    if (!validStatuses[key]) {
+      throw new Error(`Status operasional tidak valid: ${statusOperasional}`);
+    }
+    const canonicalStatus = validStatuses[key];
+
+    if (isLiveSupabase()) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('cleaners')
+          .update({
+            status_operasional: key
+          })
+          .eq('id', cleanerId)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.warn('[db.updateCleanerStatus] Supabase error:', error.message);
+        } else if (data) {
+          return normalizeCleaner(data);
+        }
+      } catch (err) {
+        console.warn('[db.updateCleanerStatus] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    const memCleaner = inMemoryStore.cleaners.find(c => c.id === cleanerId);
+    if (memCleaner) {
+      memCleaner.status_operasional = canonicalStatus;
+      return normalizeCleaner(memCleaner);
+    }
+    return null;
   },
 
   async updateCleanerRating(cleanerId) {
@@ -69,15 +175,21 @@ export const db = {
         if (!error && reviews) {
           const total = reviews.length;
           const sum = reviews.reduce((acc, r) => acc + Number(r.rating), 0);
-          const avg = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
+          const avg = total > 0 ? Math.round((sum / total) * 10) / 10 : 5.0;
 
           const { data: updated, error: updateErr } = await supabaseAdmin
             .from('cleaners')
-            .update({ rating_rata_rata: avg, total_ulasan: total })
+            .update({ rating_rata_rata: avg })
             .eq('id', cleanerId)
             .select()
             .maybeSingle();
-          if (!updateErr && updated) return updated;
+          if (!updateErr && updated) {
+            return normalizeCleaner({
+              ...updated,
+              total_ulasan: total,
+              rating_rata_rata: avg
+            });
+          }
         }
       } catch (err) {
         console.warn('[db.updateCleanerRating] Fallback ke in-memory:', err.message);
@@ -88,16 +200,179 @@ export const db = {
     const reviews = (inMemoryStore.reviews || []).filter(r => r.cleaner_id === cleanerId);
     const cleaner = inMemoryStore.cleaners.find(c => c.id === cleanerId);
     if (!cleaner) return null;
-    if (reviews.length === 0) {
-      cleaner.total_ulasan = 0;
-      return cleaner;
-    }
-    const sum = reviews.reduce((acc, curr) => acc + curr.rating, 0);
-    cleaner.rating_rata_rata = Math.round((sum / reviews.length) * 10) / 10;
-    cleaner.total_ulasan = reviews.length;
+    const total = reviews.length;
+    const sum = reviews.reduce((acc, r) => acc + Number(r.rating), 0);
+    cleaner.rating_rata_rata = total > 0 ? Math.round((sum / total) * 10) / 10 : 5.0;
+    cleaner.total_ulasan = total;
     saveStateToDisk();
-    return cleaner;
+    return normalizeCleaner(cleaner);
   },
+
+  async createCleaner(cleanerData) {
+    const newId = cleanerData.id || crypto.randomUUID();
+    const nama = String(cleanerData.nama || '').trim();
+    const nomorKontak = String(cleanerData.nomor_kontak || '').trim();
+    const keahlian = Array.isArray(cleanerData.keahlian) ? cleanerData.keahlian : [];
+    const pengalamanTahun = Number(cleanerData.pengalaman_tahun) || 1;
+    const tentang = cleanerData.tentang || `Petugas kebersihan profesional dengan pengalaman ${pengalamanTahun} tahun.`;
+    const sertifikasi = Array.isArray(cleanerData.sertifikasi) ? cleanerData.sertifikasi : ['SOP Resik.in Basic'];
+
+    // 1. Generate Email & Password Default untuk Akun Login Petugas
+    const slugName = nama.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const defaultEmail = cleanerData.email || `${slugName || 'petugas'}@resik.in`;
+    const defaultPassword = cleanerData.password || 'PetugasResik123!';
+
+    let fotoUrl = cleanerData.foto_url;
+
+    // 2. Upload Foto Jika Dikirimkan sebagai Base64
+    if (cleanerData.foto_data && isLiveSupabase()) {
+      try {
+        await ensureStorageBucket();
+        const base64Clean = cleanerData.foto_data.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Clean, 'base64');
+        const filePath = `${newId}.jpg`;
+        const { error: uploadErr } = await supabaseAdmin.storage
+          .from('cleaners')
+          .upload(filePath, buffer, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+
+        if (!uploadErr) {
+          const { data: publicUrlData } = supabaseAdmin.storage
+            .from('cleaners')
+            .getPublicUrl(filePath);
+          if (publicUrlData?.publicUrl) {
+            fotoUrl = publicUrlData.publicUrl;
+          }
+        } else {
+          console.warn('[db.createCleaner] Upload foto profile error:', uploadErr.message);
+        }
+      } catch (err) {
+        console.warn('[db.createCleaner] Gagal upload foto cleaner:', err.message);
+      }
+    }
+
+    if (!fotoUrl) {
+      fotoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(nama)}&background=006194&color=fff&size=256`;
+    }
+
+    let authUserId = cleanerData.user_id || null;
+
+    // 3. Otomatis Buat Akun Supabase Auth (auth.users) & Profiles
+    if (isLiveSupabase()) {
+      try {
+        const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+        let existingUser = (authList?.users || []).find(
+          u => u.email?.toLowerCase() === defaultEmail.toLowerCase()
+        );
+
+        if (!existingUser) {
+          const { data: createdUser, error: createAuthErr } = await supabaseAdmin.auth.admin.createUser({
+            email: defaultEmail,
+            password: defaultPassword,
+            email_confirm: true,
+            user_metadata: {
+              nama,
+              full_name: nama,
+              role: 'cleaner',
+              nomor_wa: nomorKontak,
+              cleaner_id: newId
+            }
+          });
+          if (!createAuthErr && createdUser?.user) {
+            existingUser = createdUser.user;
+          } else if (createAuthErr) {
+            console.warn('[db.createCleaner] Error createUser auth:', createAuthErr.message);
+          }
+        }
+
+        if (existingUser) {
+          authUserId = existingUser.id;
+          await supabaseAdmin.from('profiles').upsert({
+            id: authUserId,
+            nama,
+            email: defaultEmail,
+            nomor_wa: nomorKontak,
+            role: 'cleaner'
+          });
+        }
+      } catch (err) {
+        console.warn('[db.createCleaner] Auth account generation error:', err.message);
+      }
+    }
+
+    const newRecord = {
+      id: newId,
+      user_id: authUserId,
+      nama,
+      nomor_kontak: nomorKontak,
+      foto_url: fotoUrl,
+      keahlian,
+      pengalaman_tahun: pengalamanTahun,
+      rating_rata_rata: 5.0,
+      total_pekerjaan: 0,
+      status_operasional: 'aktif',
+      tentang,
+      sertifikasi,
+      account: {
+        email: defaultEmail,
+        default_password: defaultPassword,
+        user_id: authUserId
+      }
+    };
+
+    if (isLiveSupabase()) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('cleaners')
+          .insert({
+            id: newRecord.id,
+            user_id: newRecord.user_id,
+            nama: newRecord.nama,
+            nomor_kontak: newRecord.nomor_kontak,
+            foto_url: newRecord.foto_url,
+            keahlian: newRecord.keahlian,
+            pengalaman_tahun: newRecord.pengalaman_tahun,
+            rating_rata_rata: newRecord.rating_rata_rata,
+            total_pekerjaan: newRecord.total_pekerjaan,
+            status_operasional: 'aktif'
+          })
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.warn('[db.createCleaner] Supabase insert error:', error.message);
+        } else if (data) {
+          inMemoryStore.cleaners.push({
+            ...newRecord,
+            total_ulasan: 0,
+            ulasan: []
+          });
+          return normalizeCleaner({
+            ...data,
+            total_ulasan: 0,
+            tentang: newRecord.tentang,
+            sertifikasi: newRecord.sertifikasi,
+            account: newRecord.account,
+            ulasan: []
+          });
+        }
+      } catch (err) {
+        console.warn('[db.createCleaner] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    const memRecord = {
+      ...newRecord,
+      total_ulasan: 0,
+      ulasan: []
+    };
+    inMemoryStore.cleaners.push(memRecord);
+    saveStateToDisk();
+    return normalizeCleaner(memRecord);
+  },
+
 
   async ensureProfileExists(customerId) {
     if (!isLiveSupabase() || !customerId) return null;
@@ -287,8 +562,20 @@ export const db = {
           }
         }
         if (filters.cleaner_id) {
-          const sanitizedClnId = sanitizeCleanerId(filters.cleaner_id);
-          if (sanitizedClnId) query = query.eq('cleaner_id', sanitizedClnId);
+          let sanitizedClnId = sanitizeCleanerId(filters.cleaner_id);
+          if (sanitizedClnId) {
+            try {
+              const { data: matchedCleaner } = await supabaseAdmin
+                .from('cleaners')
+                .select('id')
+                .or(`id.eq.${sanitizedClnId},user_id.eq.${sanitizedClnId}`)
+                .maybeSingle();
+              if (matchedCleaner && matchedCleaner.id) {
+                sanitizedClnId = matchedCleaner.id;
+              }
+            } catch (_) {}
+            query = query.eq('cleaner_id', sanitizedClnId);
+          }
         }
         if (filters.status) {
           const dbStatus = toDbJobStatus(filters.status);
@@ -317,7 +604,9 @@ export const db = {
       orders = orders.filter(o => o.customer_id === filters.customer_id);
     }
     if (filters.cleaner_id) {
-      orders = orders.filter(o => o.cleaner_id === filters.cleaner_id);
+      const cleaner = inMemoryStore.cleaners.find(c => c.id === filters.cleaner_id || c.user_id === filters.cleaner_id);
+      const effectiveId = cleaner ? cleaner.id : filters.cleaner_id;
+      orders = orders.filter(o => o.cleaner_id === effectiveId);
     }
     if (filters.status) {
       orders = orders.filter(o => o.status_pekerjaan === filters.status);

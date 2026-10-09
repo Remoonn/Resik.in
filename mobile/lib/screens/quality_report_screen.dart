@@ -72,8 +72,15 @@ class _QualityReportScreenState extends State<QualityReportScreen> {
     });
 
     final currentUser = AuthService().currentUser;
-    final userId = widget.order.customerId ?? currentUser?.id ?? 'usr-customer-001';
     final role = currentUser?.role ?? 'customer';
+    final String userId;
+    if (role == 'cleaner') {
+      userId = currentUser?.cleanerId ?? currentUser?.id ?? widget.order.cleanerId ?? '';
+    } else if (role == 'admin') {
+      userId = currentUser?.id ?? 'admin';
+    } else {
+      userId = currentUser?.id ?? widget.order.customerId ?? 'usr-customer-001';
+    }
 
     final report = await _service.fetchReport(
       widget.order.id,

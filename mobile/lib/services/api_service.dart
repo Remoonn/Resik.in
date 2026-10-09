@@ -331,5 +331,75 @@ class ApiService {
       };
     }
   }
+
+  /// Memperbarui status operasional administratif petugas (PATCH /api/cleaners/:id/status)
+  static Future<Map<String, dynamic>> updateCleanerStatus(
+    String cleanerId,
+    String statusOperasional,
+  ) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/cleaners/$cleanerId/status');
+      final response = await _client.patch(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'status_operasional': statusOperasional,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal memperbarui status petugas: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Mendaftarkan petugas kebersihan baru (POST /api/cleaners) — Admin Only
+  static Future<Map<String, dynamic>> createCleaner({
+    required String nama,
+    required String nomorKontak,
+    required List<String> keahlian,
+    required int pengalamanTahun,
+    String? fotoUrl,
+    String? fotoData,
+    String? email,
+    String? password,
+    String? tentang,
+    List<String>? sertifikasi,
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/cleaners');
+      final body = <String, dynamic>{
+        'nama': nama,
+        'nomor_kontak': nomorKontak,
+        'keahlian': keahlian,
+        'pengalaman_tahun': pengalamanTahun,
+      };
+      if (fotoUrl != null) body['foto_url'] = fotoUrl;
+      if (fotoData != null) body['foto_data'] = fotoData;
+      if (email != null) body['email'] = email;
+      if (password != null) body['password'] = password;
+      if (tentang != null) body['tentang'] = tentang;
+      if (sertifikasi != null) body['sertifikasi'] = sertifikasi;
+
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 15));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal mendaftarkan petugas: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
 }
+
 

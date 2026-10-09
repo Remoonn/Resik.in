@@ -268,5 +268,42 @@ Dokumen ini mencatat secara kronologis seluruh capaian nyata (*deliverables*) ha
   * Naskah Bab 4 & Bab 5 terbarui.
 
 ### 3. Komitmen Output Selanjutnya:
-* Persiapan demonstrasi prototipe aplikasi dan penyerahan naskah lengkap Bab 1–5 kepada Dosen Pembimbing untuk agenda pra-sidang / seminar hasil skripsi.
+* Implementasi fitur manajemen status operasional petugas, penambahan akun petugas baru, dan inspeksi laporan mutu di Dasbor Admin.
+
+---
+
+## 📅 Jumat, 9 Oktober 2026 – Sabtu, 10 Oktober 2026 (Fitur Manajemen Petugas, Registrasi Akun Otomatis & Inspeksi Laporan Mutu Dasbor Admin)
+
+### 1. Kemajuan Project (Resik.in)
+* **Capaian:**
+  * **Langkah 1: Manajemen Status Operasional Petugas (`Aktif` ↔ `Cuti` ↔ `Nonaktif` - SOT BR-CLN-001 & BR-CLN-002):**
+    * Backend: Implementasi endpoint `PATCH /api/cleaners/:id/status` dengan validasi server-authoritative yang mencegah pengubahan status menjadi `Cuti` atau `Nonaktif` apabila petugas sedang terikat pengerjaan pesanan aktif di lapangan (`Menuju Lokasi`, `Tiba di Lokasi`, `Sedang Dikerjakan`). Petugas nonaktif/cuti otomatis dieksklusi dari algoritma Smart Matching dan penugasan baru.
+    * Database: Pembaruan kolom `status_operasional` dengan check constraint `('Aktif', 'Cuti', 'Nonaktif')` di Supabase PostgreSQL.
+    * Mobile: Bottom sheet pengelolaan status operasional petugas di Tab Tim Petugas `AdminDashboardScreen` lengkap dengan lencana warna status dan dialog konfirmasi perubahan.
+  * **Langkah 2: Penambahan Petugas Baru dengan Foto Profil & Akun Supabase Auth Otomatis:**
+    * Backend: Implementasi endpoint `POST /api/cleaners` dengan sanitasi data, pembuatan akun `auth.users` dan `profiles` otomatis (`${nama}@resik.in`, role: `cleaner`, default password aman), serta integrasi upload foto profil ke Supabase Storage bucket `cleaners`.
+    * Mobile: Floating Action Button (FAB) di Tab Tim Petugas yang membuka dialog registrasi petugas baru lengkap dengan pemilih foto profil (`image_picker`), isian spesialisasi layanan, pengalaman kerja, serta dialog kredensial login yang dapat disalin untuk diserahkan ke petugas.
+    * Integrasi UI: Tampilan foto profil petugas baru secara otomatis muncul di kartu rekomendasi Smart Matching dan layar profil detail petugas bagi pelanggan.
+  * **Langkah 3: Inspeksi Laporan Mutu Digital & Segmentasi Riwayat Monitoring:**
+    * Mobile: Peningkatan Tab Monitoring di `AdminDashboardScreen` dengan filter segmented (*Sedang Berjalan*, *Tuntas / Selesai*, *Dibatalkan*) dan counter badge dinamis.
+    * Kartu Pesanan Selesai dilengkapi info petugas pelaksana dan tombol **"Lihat Laporan Mutu"** yang bernavigasi ke `QualityReportScreen` untuk inspeksi foto Before/After, checklist area, catatan pengerjaan, serta rating bintang & ulasan pelanggan dengan otorisasi role `admin`.
+    * Interaktivitas bilah counter pipeline di header yang memungkinkan navigasi instan antar-tab dan filter.
+  * **Verifikasi & Pengujian Otomatis:**
+    * Analisis statis Dart: `flutter analyze` $\rightarrow$ **0 issues found**.
+    * Mobile Test Suite: `flutter test` $\rightarrow$ **65/65 tests PASS (100% Lulus)**.
+    * Backend Test Suite: `npm test` $\rightarrow$ **99/99 tests PASS (100% Lulus di 19 Test Suites)**.
+* **Bukti/Artefak:**
+    * Backend: `backend/routes/cleaners.js`, `backend/lib/database.js`, `backend/lib/supabase.js`, `backend/test/cleaner_status.test.js`, `backend/test/cleaner_create.test.js`.
+    * Mobile: `mobile/lib/screens/admin_dashboard_screen.dart`, `mobile/lib/services/api_service.dart`, `mobile/test/admin_cleaner_status_test.dart`, `mobile/test/admin_cleaner_create_test.dart`, `mobile/test/admin_quality_report_test.dart`.
+    * Hasil Eksekusi Uji: 99 backend tests pass & 65 mobile tests pass.
+
+### 2. Kemajuan Naskah Skripsi
+* **Capaian:**
+  * Penulisan Bab 4 Subbab 4.3 (Implementasi Dasbor Admin): Mendokumentasikan fitur tata kelola SDM petugas lapangan (lifecycle status operasional, penambahan tenaga kerja baru dengan provisioning akun otomatis, serta inspeksi mutu digital berbasis peran).
+  * Pembaruan Bab 4 Subbab 4.4 (Hasil Pengujian Sistem): Memperbarui tabel rekapitulasi pengujian unit dan widget test hingga mencapai total 99 pengujian backend dan 65 pengujian mobile dengan tingkat kelulusan 100%.
+* **Bukti/Artefak:**
+  * Draf Bab 4 terbarui dengan tangkapan layar fitur pengelolaan status petugas, formulir penambahan petugas dengan foto profil, dan layar inspeksi laporan mutu oleh admin.
+
+### 3. Komitmen Output Selanjutnya:
+* Persiapan demonstrasi prototipe komprehensif seluruh alur 3 peran (Pelanggan, Petugas, Admin) dan finalisasi pengesahan naskah skripsi untuk pendaftaran ujian skripsi.
 

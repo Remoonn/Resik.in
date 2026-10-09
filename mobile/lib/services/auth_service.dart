@@ -70,6 +70,7 @@ class AuthService {
     final meta = user.userMetadata ?? {};
     final fullName = meta['full_name'] as String? ??
         meta['name'] as String? ??
+        meta['nama'] as String? ??
         user.email?.split('@').first ??
         'Pengguna';
     final avatar = meta['avatar_url'] as String? ?? meta['picture'] as String?;
@@ -83,6 +84,8 @@ class AuthService {
       role = 'admin';
     }
 
+    final cleanerId = meta['cleaner_id'] as String?;
+
     return UserModel(
       id: user.id,
       nama: fullName,
@@ -90,6 +93,8 @@ class AuthService {
       role: role,
       token: token != null ? 'sb-$token' : 'sb-${user.id}',
       fotoUrl: avatar,
+      nomorWa: meta['nomor_wa'] as String? ?? meta['phone'] as String? ?? '-',
+      cleanerId: cleanerId,
     );
   }
 
@@ -173,6 +178,7 @@ class AuthService {
           // Tarik data profil dari tabel public.profiles untuk memastikan nama dan role mutakhir
           String finalRole = mapped.role;
           String finalName = mapped.nama;
+          String? finalCleanerId = mapped.cleanerId;
           try {
             final prof = await Supabase.instance.client
                 .from('profiles')
@@ -187,6 +193,20 @@ class AuthService {
             }
           } catch (_) {}
 
+          // Jika role cleaner dan cleanerId belum ada, cari di tabel cleaners berdasarkan user_id
+          if (finalRole == 'cleaner' && (finalCleanerId == null || finalCleanerId.isEmpty)) {
+            try {
+              final cln = await Supabase.instance.client
+                  .from('cleaners')
+                  .select('id')
+                  .eq('user_id', authRes.user!.id)
+                  .maybeSingle();
+              if (cln != null && cln['id'] != null) {
+                finalCleanerId = cln['id'] as String;
+              }
+            } catch (_) {}
+          }
+
           final resolvedUser = UserModel(
             id: mapped.id,
             nama: finalName,
@@ -195,7 +215,7 @@ class AuthService {
             token: mapped.token,
             fotoUrl: mapped.fotoUrl,
             nomorWa: mapped.nomorWa,
-            cleanerId: mapped.cleanerId,
+            cleanerId: finalCleanerId,
           );
 
           currentUserNotifier.value = resolvedUser;

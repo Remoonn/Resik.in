@@ -6,7 +6,7 @@
 **Tech Stack:**  
 - **Frontend Mobile:** Flutter (Dart) — Android & iOS (`mobile/`)
 - **Backend API:** Node.js (Express ES Module) (`backend/`)
-- **Database & Storage:** Supabase Cloud (PostgreSQL 15, Supabase Auth, Private Storage Bucket `quality-reports`)
+- **Database & Storage:** Supabase Cloud (PostgreSQL 15, Supabase Auth, Storage Buckets `quality-reports` & `cleaners`)
 **Dokumen Acuan:** [PRD-Resik.in.md](file:///c:/Users/62859/Documents/Skripsi/Resik.in/docs/PRD-Resik.in.md) & [BUSINESS-RULES.md](file:///c:/Users/62859/Documents/Skripsi/Resik.in/docs/BUSINESS-RULES.md)
 
 ---
@@ -22,8 +22,8 @@
 | **4. Akuntabilitas Mutu (Digital Quality Report Gate)** | Selesai | 100% | 29 September 2026 |
 | **5. Sistem Rating & Ulasan Pelanggan Terverifikasi** | Selesai | 100% | 30 September 2026 |
 | **6. Integrasi Cloud BaaS (Supabase PostgreSQL & Storage)**| Selesai | 100% | 1 Oktober 2026 |
-| **7. Dasbor Multi-Peran (Customer, Cleaner, Admin)** | Selesai | 100% | 5 Oktober 2026 |
-| **8. Pengujian Sistem (Unit, Integration & Widget Test)** | Selesai | 100% | 8 Oktober 2026 |
+| **7. Dasbor Multi-Peran (Customer, Cleaner, Admin)** | Selesai | 100% | 10 Oktober 2026 |
+| **8. Pengujian Sistem (Unit, Integration & Widget Test)** | Selesai | 100% | 10 Oktober 2026 |
 
 ---
 
@@ -97,10 +97,13 @@
 - [x] **Dasbor Pelanggan:** Menampilkan riwayat pesanan, banner status aktif, dan akses cepat pemesanan ulang.
 - [x] **Dasbor Petugas (`CleanerDashboardScreen`):** Menampilkan tugas aktif, kartu rincian alamat/jadwal, dan tombol aksi transisi status lapangan.
 - [x] **Dasbor Admin (`AdminDashboardScreen`):**
-  - [x] Filter tab status pesanan terorganisir (*Semua*, *Menunggu Konfirmasi*, *Dikonfirmasi*, *Sedang Berjalan*, *Selesai*, *Dibatalkan*).
-  - [x] Penghitung statistik pipeline pesanan.
+  - [x] Pipeline counter bar terorganisir dengan chip interaktif (*🟡 Konfirmasi*, *🔵 Perlu Petugas*, *🟢 Berjalan*, *⚪ Tuntas*, *🔴 Batal*).
   - [x] Lembar penugasan cerdas (`SmartAssignmentSheet`) dengan rekomendasi kecocokan petugas dan peringatan konflik jadwal.
+  - [x] Jalur Cepat Penugasan 1-Klik untuk petugas pilihan preferensi pelanggan.
   - [x] Gerbang pembayaran (*Payment Guard*): Tombol konfirmasi terkunci jika `status_pembayaran != 'Sudah Bayar'`.
+  - [x] Manajemen status operasional petugas (`Aktif`, `Cuti`, `Nonaktif`) dengan dialog konfirmasi & validasi backend pencegahan bentrok pekerjaan aktif.
+  - [x] Registrasi petugas baru dengan foto profil (upload Supabase Storage) dan pembuatan akun Supabase Auth + Profiles otomatis.
+  - [x] Tab Monitoring tersegmentasi (*Sedang Berjalan*, *Tuntas / Selesai*, *Dibatalkan*) dengan inspeksi Laporan Mutu Digital (*Quality Report Screen*).
 - [x] Pembersihan total seluruh elemen dummy/simulasi untuk memastikan sistem beroperasi secara riil.
 
 ### 8. Pengujian Sistem & Verifikasi Kualitas (100% Selesai)
@@ -109,10 +112,12 @@
   - [x] `test/orders.test.js` & `test/orders_lifecycle.test.js`: Siklus 7 status & anti-double booking.
   - [x] `test/quality-reports.test.js`: Validasi 9 tahap laporan mutu & gate lockout status Selesai.
   - [x] `test/reviews.test.js`: Validasi review & agregasi reputasi.
+  - [x] `test/cleaner_status.test.js`: Validasi siklus status operasional petugas & pencegahan mutasi saat bertugas.
+  - [x] `test/cleaner_create.test.js`: Validasi pendaftaran petugas baru & otomasi akun Auth.
   - [x] `test/database.test.js` & `test/supabase_client.test.js`: Arsitektur dual-mode & integrasi Supabase.
-  - Status: **32/32 tests PASS (100%)**.
+  - Status: **99/99 tests PASS (100% Lulus di 19 Test Suites)**.
 - [x] **Mobile Flutter Test Suite (`flutter test`):**
   - [x] Analisis statis Dart: `flutter analyze` menghasilkan **0 issues found**.
   - [x] Unit test model: `cleaner_model_test.dart`, `order_model_test.dart`, `quality_report_model_test.dart`, `review_model_test.dart`.
-  - [x] Widget test antarmuka & otorisasi: `auth_gate_role_test.dart`, `quality_report_form_sheet_test.dart`.
-  - Status: **100% PASS**.
+  - [x] Widget test antarmuka & otorisasi: `auth_gate_role_test.dart`, `admin_dashboard_screen_test.dart`, `admin_cleaner_status_test.dart`, `admin_cleaner_create_test.dart`, `admin_quality_report_test.dart`, `cleaner_dashboard_screen_test.dart`, `quality_report_screen_test.dart`.
+  - Status: **65/65 tests PASS (100% Lulus)**.

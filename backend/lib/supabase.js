@@ -41,8 +41,10 @@ export async function ensureStorageBucket() {
       console.warn('[SupabaseStorage] Gagal mengambil daftar bucket:', error.message);
       return false;
     }
-    const exists = (buckets || []).some(b => b.name === 'quality-reports');
-    if (!exists) {
+    const bucketList = buckets || [];
+
+    // 1. Bucket quality-reports (private)
+    if (!bucketList.some(b => b.name === 'quality-reports')) {
       const { error: createErr } = await supabaseAdmin.storage.createBucket('quality-reports', {
         public: false,
         fileSizeLimit: 5242880,
@@ -50,16 +52,32 @@ export async function ensureStorageBucket() {
       });
       if (createErr) {
         console.warn('[SupabaseStorage] Gagal membuat bucket quality-reports:', createErr.message);
-        return false;
+      } else {
+        console.log('[SupabaseStorage] Bucket quality-reports berhasil dibuat secara otomatis.');
       }
-      console.log('[SupabaseStorage] Bucket quality-reports berhasil dibuat secara otomatis.');
     }
+
+    // 2. Bucket cleaners (public untuk foto profil petugas)
+    if (!bucketList.some(b => b.name === 'cleaners')) {
+      const { error: createClnErr } = await supabaseAdmin.storage.createBucket('cleaners', {
+        public: true,
+        fileSizeLimit: 5242880,
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
+      });
+      if (createClnErr) {
+        console.warn('[SupabaseStorage] Gagal membuat bucket cleaners:', createClnErr.message);
+      } else {
+        console.log('[SupabaseStorage] Bucket cleaners (public) berhasil dibuat secara otomatis.');
+      }
+    }
+
     return true;
   } catch (err) {
     console.warn('[SupabaseStorage] Warning ensureStorageBucket:', err.message);
     return false;
   }
 }
+
 
 // 2. In-Memory Seed Data (Sesuai database/schema.sql)
 export const inMemoryStore = {

@@ -5,6 +5,7 @@ import '../models/order_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import 'quality_report_screen.dart';
+import '../widgets/quality_report_form_sheet.dart';
 
 class CleanerDashboardScreen extends StatefulWidget {
   final Future<List<OrderModel>> Function()? ordersLoader;
@@ -475,16 +476,24 @@ class _CleanerDashboardScreenState extends State<CleanerDashboardScreen>
                 ? null
                 : () async {
                     if (isQualityReport) {
-                      final updated = await Navigator.push<bool>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => QualityReportScreen(
-                            order: order,
-                          ),
+                      final updated = await showModalBottomSheet<bool>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => QualityReportFormSheet(
+                          order: order,
                         ),
                       );
                       if (updated == true) {
-                        _loadOrders();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Laporan Mutu berhasil dikirim dan pekerjaan selesai!'),
+                              backgroundColor: Color(0xFF006947),
+                            ),
+                          );
+                        }
+                        await _loadOrders();
                       }
                     } else {
                       _updateStatus(order, nextStatus);
