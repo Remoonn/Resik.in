@@ -79,4 +79,58 @@ void main() {
     expect(find.textContaining('Rekomendasi Petugas'), findsOneWidget);
     expect(find.text('Pilihkan Otomatis oleh Admin'), findsOneWidget);
   });
+
+  testWidgets('4. Header layanan tidak overflow pada layar smartphone sempit (360x800) untuk layanan panjang', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final longService = ServiceModel(
+      id: 'srv-004-renov',
+      namaLayanan: 'Pembersihan Pasca Renovasi',
+      kategori: 'renovasi',
+      deskripsi: 'Pembersihan sisa debu dan material renovasi',
+      durasiEstimasi: '3 - 5 Jam',
+      tarifDasar: 250000.0,
+      iconName: 'home',
+      isActive: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingScreen(service: longService),
+      ),
+    );
+    await tester.pump();
+
+    // Pastikan tidak ada RenderFlex overflow exception
+    expect(tester.takeException(), isNull);
+    expect(find.text('Pembersihan Pasca Renovasi'), findsOneWidget);
+  });
+  testWidgets('5. Header layanan tidak overflow untuk Pembersihan Rumah dan Kantor pada layar 360x800', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final kantorService = ServiceModel(
+      id: 'srv-003-kantor',
+      namaLayanan: 'Pembersihan Kantor',
+      kategori: 'kantor',
+      deskripsi: 'Pembersihan ruang kantor dan area kerja',
+      durasiEstimasi: '2 - 4 Jam',
+      tarifDasar: 180000.0,
+      iconName: 'business',
+      isActive: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingScreen(service: kantorService),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Pembersihan Kantor'), findsOneWidget);
+  });
 }

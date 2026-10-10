@@ -52,6 +52,22 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
+    // Inisialisasi durasi default sesuai standar layanan di BUSINESS-RULES (BR-SCH-003)
+    switch (widget.service.kategori.toLowerCase()) {
+      case 'kos':
+        _selectedDuration = 1;
+        break;
+      case 'kantor':
+        _selectedDuration = 3;
+        break;
+      case 'renovasi':
+        _selectedDuration = 4;
+        break;
+      case 'rumah':
+      default:
+        _selectedDuration = 2;
+        break;
+    }
     _loadRecommendations();
   }
 
@@ -232,13 +248,15 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                     child: const Icon(Icons.cleaning_services_rounded, color: AppColors.primary, size: 26),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           widget.service.namaLayanan,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -246,7 +264,10 @@ class _BookingScreenState extends State<BookingScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -263,9 +284,8 @@ class _BookingScreenState extends State<BookingScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 6),
                             Text(
-                              '• Estimasi ${widget.service.durasiEstimasi}',
+                              'Est. ${widget.service.durasiEstimasi}',
                               style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
                             ),
                           ],
@@ -273,6 +293,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     currencyFormatter.format(widget.service.tarifDasar),
                     style: const TextStyle(
@@ -324,9 +345,11 @@ class _BookingScreenState extends State<BookingScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             initialValue: _selectedStartTime,
+                            isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Jam Mulai',
                               prefixIcon: Icon(Icons.access_time_rounded, size: 18, color: AppColors.primary),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                             ),
                             items: _operatingHours.map((time) {
                               return DropdownMenuItem(
@@ -351,8 +374,16 @@ class _BookingScreenState extends State<BookingScreen> {
 
                     // Durasi Chips
                     Text(
-                      'Durasi Pengerjaan Standar (Jam)',
+                      'Durasi Pengerjaan yang Diinginkan',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Alokasi waktu riil untuk menghitung jam selesai & ketersediaan petugas',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                            fontSize: 11,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -816,16 +847,20 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Lanjut ke Pembayaran',
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward_rounded, size: 18),
-                                ],
+                            : const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Lanjut ke Pembayaran',
+                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Icon(Icons.arrow_forward_rounded, size: 18),
+                                  ],
+                                ),
                               ),
                       ),
                     ),
