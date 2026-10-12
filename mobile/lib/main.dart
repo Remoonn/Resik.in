@@ -6,6 +6,7 @@ import 'models/user_model.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'screens/admin_dashboard_screen.dart';
+import 'screens/ai_consultation_screen.dart';
 import 'screens/booking_screen.dart';
 import 'screens/cleaner_dashboard_screen.dart';
 import 'screens/order_tracking_screen.dart';
@@ -528,90 +529,117 @@ class _HomeScreenState extends State<HomeScreen> {
             // Banner "Tanya Resik AI" / Solusi Noda Instan (Sesuai Stitch Screen 1)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.primaryContainer],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.auto_awesome_rounded, size: 14, color: AppColors.tertiaryFixed),
-                              SizedBox(width: 5),
-                              Text(
-                                'TANYA RESIK AI',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.tertiaryFixed,
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: const Text(
-                            'Gratis',
-                            style: TextStyle(
-                              color: AppColors.tertiary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AiConsultationScreen()),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryContainer],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Kebersihan Nyata,\nBukti Mutu Terpercaya',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        height: 1.25,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.auto_awesome_rounded, size: 14, color: AppColors.tertiaryFixed),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'TANYA RESIK AI',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.tertiaryFixed,
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: const Text(
+                                'Gratis',
+                                style: TextStyle(
+                                  color: AppColors.tertiary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Kebersihan Nyata,\nBukti Mutu Terpercaya',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Konsultasikan kebutuhan hunian Anda dengan Resik AI atau pesan langsung dengan rekomendasi deterministik.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Text(
+                              'Mulai Konsultasi Gratis',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Pesan jasa on-demand dengan rekomendasi petugas deterministik & laporan mutu digital.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -934,6 +962,21 @@ class _HomeScreenState extends State<HomeScreen> {
               : (_currentBottomNavIndex == 2
                   ? _buildAITab()
                   : _buildAccountTab())),
+      floatingActionButton: _currentBottomNavIndex == 0
+          ? FloatingActionButton.extended(
+              key: const Key('fab_tanya_resik_ai'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AiConsultationScreen()),
+                );
+              },
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('Tanya AI', style: TextStyle(fontWeight: FontWeight.w700)),
+            )
+          : null,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLowest,
@@ -1532,61 +1575,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAITab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryLight,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.auto_awesome_rounded, color: AppColors.primary, size: 40),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Resik AI Smart Consultation',
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Fitur konsultasi kebutuhan pembersihan dan diagnosis noda dengan AI dijadwalkan hadir pada Tahap 2 (Phase 2 Roadmap).',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
-                fontSize: 13,
-                color: AppColors.onSurfaceVariant,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _currentBottomNavIndex = 0;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: const Text('Kembali ke Beranda'),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const AiConsultationScreen();
   }
 
   Widget _buildAccountTab() {
