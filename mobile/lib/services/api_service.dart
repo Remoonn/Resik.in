@@ -400,6 +400,33 @@ class ApiService {
       };
     }
   }
+
+  /// Mengirim pesan konsultasi AI ke backend (POST /api/ai/chat)
+  static Future<Map<String, dynamic>> sendAiConsultationMessage({
+    required String message,
+    List<Map<String, String>> history = const [],
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/ai/chat');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'message': message,
+          'history': history,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final Map<String, dynamic> body = jsonDecode(response.body);
+      return body;
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal terhubung ke layanan Resik AI: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
 }
 
 
