@@ -17,9 +17,9 @@
 | **Halaman Depan (Judul, Abstrak, Lembar Pengesahan)** | In Progress | ~6 | 8 Oktober 2026 |
 | **BAB 1: Pendahuluan** | Selesai | ~8 | 25 September 2026 |
 | **BAB 2: Tinjauan Pustaka & Landasan Teori** | Selesai | ~16 | 28 September 2026 |
-| **BAB 3: Analisis & Perancangan Sistem** | Selesai | ~28 | 30 September 2026 |
-| **BAB 4: Implementasi & Pengujian Sistem** | Selesai | ~32 | 7 Oktober 2026 |
-| **BAB 5: Kesimpulan & Saran** | Selesai | ~4 | 8 Oktober 2026 |
+| **BAB 3: Analisis & Perancangan Sistem** | Selesai | ~30 | 12 Oktober 2026 |
+| **BAB 4: Implementasi & Pengujian Sistem** | Selesai | ~36 | 12 Oktober 2026 |
+| **BAB 5: Kesimpulan & Saran** | Selesai | ~4 | 12 Oktober 2026 |
 | **Daftar Pustaka & Lampiran** | In Progress | ~10 | 8 Oktober 2026 |
 
 ---
@@ -104,11 +104,12 @@
 - [x] **4.3 Implementasi Antarmuka Mobile Flutter:**
   - Implementasi halaman utama Pelanggan, Petugas (`CleanerDashboardScreen`), dan Admin (`AdminDashboardScreen`).
   - Implementasi widget reaktif: `OrderTrackingScreen`, `QualityReportFormSheet`, `QualityReportScreen`, `ReviewBottomSheet`.
+  - Implementasi Chatbot AI Konsultasi Kebutuhan (`AiConsultationScreen`) dengan kartu rekomendasi interaktif langsung ke pemesanan.
   - Penegakan perutean otomatis berbasis peran pada `AuthGate`.
 - [x] **4.4 Pengujian Perangkat Lunak:**
   - [x] **Pengujian Otomatis (*Automated Testing*):**
-    - Backend: 32 unit & integration test case (`npm test`) berstatus 100% PASS.
-    - Mobile: 0 issue pada `flutter analyze` dan seluruh test widget/model (`flutter test`) berstatus PASS.
+    - Backend: 106 unit & integration test case (`npm test`) di 21 test suites berstatus 100% PASS.
+    - Mobile: 0 issue pada `flutter analyze` dan 73 widget & unit test case (`flutter test`) berstatus 100% PASS.
   - [x] **Pengujian Fungsional (*Black-Box Testing*):**
     - TC-01: Alur pendaftaran dan login Google Sign-In & Email/Password.
     - TC-02: Pemesanan jasa dan rekomendasi petugas cerdas (*Smart Matching*).
