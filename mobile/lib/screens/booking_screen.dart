@@ -11,8 +11,13 @@ import 'cleaner_detail_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   final ServiceModel service;
+  final int? initialDuration;
 
-  const BookingScreen({super.key, required this.service});
+  const BookingScreen({
+    super.key,
+    required this.service,
+    this.initialDuration,
+  });
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -52,21 +57,25 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    // Inisialisasi durasi default sesuai standar layanan di BUSINESS-RULES (BR-SCH-003)
-    switch (widget.service.kategori.toLowerCase()) {
-      case 'kos':
-        _selectedDuration = 1;
-        break;
-      case 'kantor':
-        _selectedDuration = 3;
-        break;
-      case 'renovasi':
-        _selectedDuration = 4;
-        break;
-      case 'rumah':
-      default:
-        _selectedDuration = 2;
-        break;
+    // Inisialisasi durasi: gunakan initialDuration jika diberikan (1-4 Jam), atau default per kategori
+    if (widget.initialDuration != null && widget.initialDuration! >= 1 && widget.initialDuration! <= 4) {
+      _selectedDuration = widget.initialDuration!;
+    } else {
+      switch (widget.service.kategori.toLowerCase()) {
+        case 'kos':
+          _selectedDuration = 1;
+          break;
+        case 'kantor':
+          _selectedDuration = 3;
+          break;
+        case 'renovasi':
+          _selectedDuration = 4;
+          break;
+        case 'rumah':
+        default:
+          _selectedDuration = 2;
+          break;
+      }
     }
     _loadRecommendations();
   }

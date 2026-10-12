@@ -133,4 +133,26 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Pembersihan Kantor'), findsOneWidget);
   });
+
+  testWidgets('6. BookingScreen menginisialisasi durasi dengan parameter initialDuration jika diberikan', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingScreen(
+          service: dummyService,
+          initialDuration: 4,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Pastikan chip 4 Jam terpilih
+    final chip4Jam = find.widgetWithText(ChoiceChip, '4 Jam');
+    expect(chip4Jam, findsOneWidget);
+    final ChoiceChip chipWidget = tester.widget(chip4Jam);
+    expect(chipWidget.selected, isTrue);
+  });
 }
