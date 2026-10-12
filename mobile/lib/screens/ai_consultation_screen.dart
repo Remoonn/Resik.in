@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../models/ai_consultation_model.dart';
-import '../models/service_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'booking_screen.dart';

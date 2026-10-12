@@ -23,7 +23,8 @@
 | **5. Sistem Rating & Ulasan Pelanggan Terverifikasi** | Selesai | 100% | 30 September 2026 |
 | **6. Integrasi Cloud BaaS (Supabase PostgreSQL & Storage)**| Selesai | 100% | 1 Oktober 2026 |
 | **7. Dasbor Multi-Peran (Customer, Cleaner, Admin)** | Selesai | 100% | 10 Oktober 2026 |
-| **8. Pengujian Sistem (Unit, Integration & Widget Test)** | Selesai | 100% | 10 Oktober 2026 |
+| **8. Pengujian Sistem (Unit, Integration & Widget Test)** | Selesai | 100% | 12 Oktober 2026 |
+| **9. Asisten Cerdas & Chatbot AI Konsultasi Kebutuhan** | Selesai | 100% | 12 Oktober 2026 |
 
 ---
 
@@ -115,9 +116,24 @@
   - [x] `test/cleaner_status.test.js`: Validasi siklus status operasional petugas & pencegahan mutasi saat bertugas.
   - [x] `test/cleaner_create.test.js`: Validasi pendaftaran petugas baru & otomasi akun Auth.
   - [x] `test/database.test.js` & `test/supabase_client.test.js`: Arsitektur dual-mode & integrasi Supabase.
-  - Status: **99/99 tests PASS (100% Lulus di 19 Test Suites)**.
+  - [x] `test/gemini_fallback.test.js`: Validasi Smart Fallback Engine & Intent Matching Resik AI.
+  - [x] `test/ai.test.js`: Validasi endpoint `POST /api/ai/chat` & batas input sanitasi.
+  - Status: **106/106 tests PASS (100% Lulus di 21 Test Suites)**.
 - [x] **Mobile Flutter Test Suite (`flutter test`):**
   - [x] Analisis statis Dart: `flutter analyze` menghasilkan **0 issues found**.
-  - [x] Unit test model: `cleaner_model_test.dart`, `order_model_test.dart`, `quality_report_model_test.dart`, `review_model_test.dart`.
-  - [x] Widget test antarmuka & otorisasi: `auth_gate_role_test.dart`, `admin_dashboard_screen_test.dart`, `admin_cleaner_status_test.dart`, `admin_cleaner_create_test.dart`, `admin_quality_report_test.dart`, `cleaner_dashboard_screen_test.dart`, `quality_report_screen_test.dart`.
-  - Status: **65/65 tests PASS (100% Lulus)**.
+  - [x] Unit test model: `cleaner_model_test.dart`, `order_model_test.dart`, `quality_report_model_test.dart`, `review_model_test.dart`, `ai_consultation_model_test.dart`.
+  - [x] Widget test antarmuka & otorisasi: `auth_gate_role_test.dart`, `admin_dashboard_screen_test.dart`, `admin_cleaner_status_test.dart`, `admin_cleaner_create_test.dart`, `admin_quality_report_test.dart`, `cleaner_dashboard_screen_test.dart`, `quality_report_screen_test.dart`, `booking_screen_test.dart`, `ai_consultation_screen_test.dart`, `ai_entry_point_test.dart`.
+  - Status: **73/73 tests PASS (100% Lulus)**.
+
+### 9. Asisten Cerdas & Chatbot AI Konsultasi Kebutuhan "Resik AI" (100% Selesai)
+- [x] **Backend Generative AI & Smart Fallback Service (`backend/lib/gemini.js`):**
+  - [x] Zero-dependency integration via native `fetch` + `AbortController` (timeout 8 detik) ke Google Gemini REST API (`gemini-1.5-flash`).
+  - [x] Grounding prompt dengan data katalog layanan aktual (`getServices()`), jam buka operasional (08:00–17:00), garansi kepuasan mutu, dan buffer operasional 30 menit.
+  - [x] *Smart Rule-Based Fallback Engine* untuk menjamin zero-downtime dan 100% ketahanan offline saat demonstrasi sidang skripsi.
+  - [x] REST API `POST /api/ai/chat` di `backend/routes/ai.js` dengan sanitasi panjang pesan (maksimal 500 karakter).
+- [x] **Mobile Client & Actionable In-Chat Service Cards:**
+  - [x] Model data `AiRecommendedService`, `AiConsultationResponse`, `AiChatMessage` di `ai_consultation_model.dart`.
+  - [x] Integrasi `ApiService.sendAiConsultationMessage(...)` dengan penanganan error jaringan.
+  - [x] Antarmuka chat interaktif `AiConsultationScreen` dengan badge status robot, quick-action chips, typing indicator, auto-scroll, haptic feedback, dan copy message.
+  - [x] *In-Chat Actionable Service Card:* Merender kartu ringkasan rekomendasi layanan AI dengan tombol "Pesan Layanan Ini" yang langsung bernavigasi ke `BookingScreen` dengan durasi terisi otomatis (`initialDuration`).
+  - [x] Titik masuk intuitif di Beranda pelanggan: Banner "TANYA RESIK AI" yang dapat diklik (*tappable*), Floating Action Button (FAB) "Tanya AI", serta tab navigasi "Resik AI".
