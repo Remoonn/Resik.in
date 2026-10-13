@@ -368,7 +368,8 @@ export const inMemoryStore = {
       role: 'admin',
       created_at: new Date().toISOString()
     }
-  ]
+  ],
+  cleaning_plans: []
 };
 
 // 3. Helper Fetch Services dengan Dual-Mode Resilien
@@ -424,12 +425,14 @@ export function saveStateToDisk() {
       !r.id?.startsWith('rev-test-') && 
       !(r.order_id && (r.order_id.startsWith('ord-test-') || r.order_id.startsWith('ord-qr-')))
     );
+    const cleanPlans = (inMemoryStore.cleaning_plans || []).filter(p => !p.id?.startsWith('cp-test-'));
     const dataToSave = {
       orders: cleanOrders,
       status_logs: cleanLogs,
       quality_reports: cleanReports,
       cleaners: inMemoryStore.cleaners,
-      reviews: cleanReviews
+      reviews: cleanReviews,
+      cleaning_plans: cleanPlans
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
   } catch (err) {
@@ -460,7 +463,10 @@ export function loadStateFromDisk() {
           !(r.order_id && (r.order_id.startsWith('ord-test-') || r.order_id.startsWith('ord-qr-')))
         );
       }
-      console.log(`[inMemoryStore] Berhasil memuat status tersimpan: ${inMemoryStore.orders.length} pesanan, ${inMemoryStore.quality_reports.length} laporan mutu, ${inMemoryStore.reviews.length} ulasan.`);
+      if (Array.isArray(loaded.cleaning_plans) && loaded.cleaning_plans.length > 0) {
+        inMemoryStore.cleaning_plans = loaded.cleaning_plans.filter(p => !p.id?.startsWith('cp-test-'));
+      }
+      console.log(`[inMemoryStore] Berhasil memuat status tersimpan: ${inMemoryStore.orders.length} pesanan, ${inMemoryStore.quality_reports.length} laporan mutu, ${inMemoryStore.reviews.length} ulasan, ${inMemoryStore.cleaning_plans.length} paket langganan.`);
     }
   } catch (err) {
     console.warn('[inMemoryStore] Tidak dapat memuat cache, menggunakan nilai bawaan:', err.message);

@@ -29,6 +29,69 @@ function normalizeCleaner(cleaner) {
   };
 }
 
+function normalizeCleaningPlan(row) {
+  if (!row) return null;
+  const id = row.id;
+  const customerId = row.customerId || row.customer_id;
+  const planName = row.planName || row.plan_name;
+  const serviceCategory = row.serviceCategory || row.service_category;
+  const serviceId = row.serviceId || row.service_id || null;
+  const frequency = row.frequency || 'mingguan';
+  const dayOfWeek = Number(row.dayOfWeek !== undefined ? row.dayOfWeek : row.day_of_week);
+  const dayName = row.dayName || row.day_name;
+  const startTime = row.startTime || row.start_time;
+  const duration = Number(row.duration !== undefined ? row.duration : 2);
+  const pricePerSession = Number(row.pricePerSession !== undefined ? row.pricePerSession : row.price_per_session || 0);
+  const address = row.address;
+  const landmark = row.landmark || null;
+  const notes = row.notes || null;
+  const preferredCleanerId = row.preferredCleanerId || row.preferred_cleaner_id || null;
+  const status = row.status || 'Aktif';
+  const nextSessionDate = row.nextSessionDate || row.next_session_date;
+  const lastGeneratedDate = row.lastGeneratedDate || row.last_generated_date || null;
+  const totalSessionsCompleted = Number(row.totalSessionsCompleted !== undefined ? row.totalSessionsCompleted : (row.total_sessions_completed || 0));
+  const createdAt = row.createdAt || row.created_at || new Date().toISOString();
+  const updatedAt = row.updatedAt || row.updated_at || new Date().toISOString();
+
+  return {
+    id,
+    customerId,
+    customer_id: customerId,
+    planName,
+    plan_name: planName,
+    serviceCategory,
+    service_category: serviceCategory,
+    serviceId,
+    service_id: serviceId,
+    frequency,
+    dayOfWeek,
+    day_of_week: dayOfWeek,
+    dayName,
+    day_name: dayName,
+    startTime,
+    start_time: startTime,
+    duration,
+    pricePerSession,
+    price_per_session: pricePerSession,
+    address,
+    landmark,
+    notes,
+    preferredCleanerId,
+    preferred_cleaner_id: preferredCleanerId,
+    status,
+    nextSessionDate,
+    next_session_date: nextSessionDate,
+    lastGeneratedDate,
+    last_generated_date: lastGeneratedDate,
+    totalSessionsCompleted,
+    total_sessions_completed: totalSessionsCompleted,
+    createdAt,
+    created_at: createdAt,
+    updatedAt,
+    updated_at: updatedAt
+  };
+}
+
 export const db = {
   // CLEANERS REPO
   async getCleaners() {
@@ -1178,5 +1241,214 @@ export const db = {
       }
     }
     return (inMemoryStore.reviews || []).filter(r => r.cleaner_id === cleanerId);
+  },
+
+  // CLEANING PLANS REPO (FR-12)
+  async createCleaningPlan(planData) {
+    if (!planData) throw new Error('Data cleaning plan tidak boleh kosong');
+
+    const customerId = planData.customerId || planData.customer_id;
+    const planName = planData.planName || planData.plan_name;
+    const serviceCategory = planData.serviceCategory || planData.service_category;
+    const serviceId = planData.serviceId || planData.service_id || null;
+    const frequency = planData.frequency || 'mingguan';
+    const dayOfWeek = Number(planData.dayOfWeek !== undefined ? planData.dayOfWeek : planData.day_of_week);
+    const dayName = planData.dayName || planData.day_name;
+    const startTime = planData.startTime || planData.start_time;
+    const duration = Number(planData.duration !== undefined ? planData.duration : 2);
+    const pricePerSession = Number(planData.pricePerSession !== undefined ? planData.pricePerSession : planData.price_per_session || 0);
+    const address = planData.address;
+    const landmark = planData.landmark || null;
+    const notes = planData.notes || null;
+    const preferredCleanerId = planData.preferredCleanerId || planData.preferred_cleaner_id || null;
+    const status = planData.status || 'Aktif';
+    const nextSessionDate = planData.nextSessionDate || planData.next_session_date;
+    const lastGeneratedDate = planData.lastGeneratedDate || planData.last_generated_date || null;
+    const totalSessionsCompleted = Number(planData.totalSessionsCompleted !== undefined ? planData.totalSessionsCompleted : (planData.total_sessions_completed || 0));
+
+    const id = planData.id || crypto.randomUUID();
+
+    if (isLiveSupabase()) {
+      try {
+        const dbRow = {
+          id,
+          customer_id: customerId,
+          plan_name: planName,
+          service_category: serviceCategory,
+          service_id: serviceId,
+          frequency,
+          day_of_week: dayOfWeek,
+          day_name: dayName,
+          start_time: startTime,
+          duration,
+          price_per_session: pricePerSession,
+          address,
+          landmark,
+          notes,
+          preferred_cleaner_id: preferredCleanerId,
+          status,
+          next_session_date: nextSessionDate,
+          last_generated_date: lastGeneratedDate,
+          total_sessions_completed: totalSessionsCompleted
+        };
+        const { data, error } = await supabaseAdmin
+          .from('cleaning_plans')
+          .insert(dbRow)
+          .select()
+          .single();
+        if (!error && data) {
+          return normalizeCleaningPlan(data);
+        }
+        if (error) {
+          console.warn('[db.createCleaningPlan] Supabase insert error:', error.message);
+        }
+      } catch (err) {
+        console.warn('[db.createCleaningPlan] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    const newPlan = normalizeCleaningPlan({
+      id,
+      customerId,
+      planName,
+      serviceCategory,
+      serviceId,
+      frequency,
+      dayOfWeek,
+      dayName,
+      startTime,
+      duration,
+      pricePerSession,
+      address,
+      landmark,
+      notes,
+      preferredCleanerId,
+      status,
+      nextSessionDate,
+      lastGeneratedDate,
+      totalSessionsCompleted,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    if (!inMemoryStore.cleaning_plans) inMemoryStore.cleaning_plans = [];
+    inMemoryStore.cleaning_plans.push(newPlan);
+    saveStateToDisk();
+    return newPlan;
+  },
+
+  async getCleaningPlansByCustomerId(customerId) {
+    if (!customerId) return [];
+    if (isLiveSupabase()) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('cleaning_plans')
+          .select('*')
+          .eq('customer_id', customerId)
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          return data.map(normalizeCleaningPlan);
+        }
+      } catch (err) {
+        console.warn('[db.getCleaningPlansByCustomerId] Fallback ke in-memory:', err.message);
+      }
+    }
+    return (inMemoryStore.cleaning_plans || [])
+      .filter(p => (p.customerId === customerId || p.customer_id === customerId))
+      .map(normalizeCleaningPlan);
+  },
+
+  async getCleaningPlanById(planId) {
+    if (!planId) return null;
+    if (isLiveSupabase()) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('cleaning_plans')
+          .select('*')
+          .eq('id', planId)
+          .maybeSingle();
+        if (!error && data) {
+          return normalizeCleaningPlan(data);
+        }
+      } catch (err) {
+        console.warn('[db.getCleaningPlanById] Fallback ke in-memory:', err.message);
+      }
+    }
+    const found = (inMemoryStore.cleaning_plans || []).find(p => p.id === planId);
+    return found ? normalizeCleaningPlan(found) : null;
+  },
+
+  async updateCleaningPlanStatus(planId, status) {
+    if (!planId) return null;
+    if (isLiveSupabase()) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('cleaning_plans')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', planId)
+          .select()
+          .maybeSingle();
+        if (!error && data) {
+          return normalizeCleaningPlan(data);
+        }
+      } catch (err) {
+        console.warn('[db.updateCleaningPlanStatus] Fallback ke in-memory:', err.message);
+      }
+    }
+    const plan = (inMemoryStore.cleaning_plans || []).find(p => p.id === planId);
+    if (plan) {
+      plan.status = status;
+      plan.updatedAt = new Date().toISOString();
+      plan.updated_at = plan.updatedAt;
+      saveStateToDisk();
+      return normalizeCleaningPlan(plan);
+    }
+    return null;
+  },
+
+  async updateCleaningPlanNextSession(planId, nextDate, incrementCompleted = false) {
+    if (!planId) return null;
+    if (isLiveSupabase()) {
+      try {
+        const updatePayload = {
+          next_session_date: nextDate,
+          updated_at: new Date().toISOString()
+        };
+        const existing = await this.getCleaningPlanById(planId);
+        if (existing) {
+          updatePayload.last_generated_date = existing.nextSessionDate;
+          if (incrementCompleted) {
+            updatePayload.total_sessions_completed = existing.totalSessionsCompleted + 1;
+          }
+        }
+        const { data, error } = await supabaseAdmin
+          .from('cleaning_plans')
+          .update(updatePayload)
+          .eq('id', planId)
+          .select()
+          .maybeSingle();
+        if (!error && data) {
+          return normalizeCleaningPlan(data);
+        }
+      } catch (err) {
+        console.warn('[db.updateCleaningPlanNextSession] Fallback ke in-memory:', err.message);
+      }
+    }
+    const plan = (inMemoryStore.cleaning_plans || []).find(p => p.id === planId);
+    if (plan) {
+      plan.lastGeneratedDate = plan.nextSessionDate || plan.next_session_date;
+      plan.last_generated_date = plan.lastGeneratedDate;
+      plan.nextSessionDate = nextDate;
+      plan.next_session_date = nextDate;
+      if (incrementCompleted) {
+        plan.totalSessionsCompleted = (plan.totalSessionsCompleted || 0) + 1;
+        plan.total_sessions_completed = plan.totalSessionsCompleted;
+      }
+      plan.updatedAt = new Date().toISOString();
+      plan.updated_at = plan.updatedAt;
+      saveStateToDisk();
+      return normalizeCleaningPlan(plan);
+    }
+    return null;
   }
 };

@@ -284,6 +284,62 @@ CREATE POLICY "Customers can create reviews for own completed orders" ON public.
             AND orders.customer_id = auth.uid() 
             AND orders.status_pekerjaan = 'selesai'
         )
+
+-- ==============================================================================
+-- 11B. TABEL LAYANAN RUTIN BERKALA / CLEANING PLAN (FR-12)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.cleaning_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    plan_name VARCHAR(100) NOT NULL CHECK (LENGTH(TRIM(plan_name)) >= 3),
+    service_category VARCHAR(50) NOT NULL CHECK (service_category IN ('rumah', 'kos', 'kantor', 'pasca_renovasi')),
+    service_id VARCHAR(100),
+    frequency VARCHAR(30) NOT NULL CHECK (frequency IN ('mingguan', 'dua_mingguan')),
+    day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7), -- 1=Senin, ..., 7=Minggu
+    day_name VARCHAR(20) NOT NULL CHECK (day_name IN ('Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu')),
+    start_time VARCHAR(5) NOT NULL CHECK (start_time ~ '^(0[8-9]|1[0-7]):[0-5][0-9]$'),
+    duration INT NOT NULL CHECK (duration BETWEEN 1 AND 4),
+    price_per_session INT NOT NULL CHECK (price_per_session > 0),
+    address TEXT NOT NULL CHECK (LENGTH(TRIM(address)) >= 10),
+    landmark TEXT,
+    notes TEXT,
+    preferred_cleaner_id UUID REFERENCES public.cleaners(id) ON DELETE SET NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Aktif' CHECK (status IN ('Aktif', 'Dijeda', 'Dibatalkan')),
+    next_session_date DATE NOT NULL,
+    last_generated_date DATE,
+    total_sessions_completed INT NOT NULL DEFAULT 0 CHECK (total_sessions_completed >= 0),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cleaning_plans_customer ON public.cleaning_plans(customer_id);
+
+-- Alterasi Tabel orders untuk Foreign Key cleaning_plan_id
+ALTER TABLE public.orders 
+ADD COLUMN IF NOT EXISTS cleaning_plan_id UUID REFERENCES public.cleaning_plans(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS session_number INT DEFAULT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_orders_cleaning_plan ON public.orders(cleaning_plan_id);
+
+-- RLS untuk cleaning_plans
+ALTER TABLE public.cleaning_plans ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Customers can view own cleaning plans" ON public.cleaning_plans;
+CREATE POLICY "Customers can view own cleaning plans" ON public.cleaning_plans
+    FOR SELECT USING (
+        auth.uid() = customer_id 
+        OR auth.uid() IN (SELECT id FROM public.profiles WHERE role = 'admin')
+    );
+
+DROP POLICY IF EXISTS "Customers can create own cleaning plans" ON public.cleaning_plans;
+CREATE POLICY "Customers can create own cleaning plans" ON public.cleaning_plans
+    FOR INSERT WITH CHECK (auth.uid() = customer_id);
+
+DROP POLICY IF EXISTS "Customers and Admin can update own cleaning plans" ON public.cleaning_plans;
+CREATE POLICY "Customers and Admin can update own cleaning plans" ON public.cleaning_plans
+    FOR UPDATE USING (
+        auth.uid() = customer_id 
+        OR auth.uid() IN (SELECT id FROM public.profiles WHERE role = 'admin')
     );
 
 
