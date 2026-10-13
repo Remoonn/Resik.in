@@ -111,5 +111,44 @@ void main() {
       expect(order.startedAt, '2026-09-30T13:05:00.000Z');
       expect(order.statusLogs?.length, 2);
     });
+
+    test('4. fromJson mendukung cleaning_plan_id dan session_number secara opsional (FR-12)', () {
+      final jsonWithPlan = {
+        'id': 'ord-test-plan-01',
+        'customer_id': 'usr-001',
+        'service_id': 'srv-002',
+        'service_category': 'kos',
+        'status_pekerjaan': 'Menunggu Konfirmasi',
+        'status_pembayaran': 'Belum Bayar',
+        'start_time': '2026-10-19T09:00:00.000Z',
+        'duration': 2,
+        'total_biaya': 100000.0,
+        'alamat_lengkap': 'Jl. Kaliurang KM 14.5',
+        'cleaning_plan_id': 'plan-001',
+        'session_number': 3,
+      };
+
+      final order = OrderModel.fromJson(jsonWithPlan);
+      expect(order.cleaningPlanId, 'plan-001');
+      expect(order.sessionNumber, 3);
+
+      // Backward-compatibility: JSON lama tanpa field plan
+      final jsonOld = {
+        'id': 'ord-old-01',
+        'customer_id': 'usr-001',
+        'service_id': 'srv-001',
+        'service_category': 'rumah',
+        'status_pekerjaan': 'Selesai',
+        'status_pembayaran': 'Sudah Bayar',
+        'start_time': '2026-10-10T09:00:00.000Z',
+        'duration': 2,
+        'total_biaya': 100000.0,
+        'alamat_lengkap': 'Jl. Kaliurang KM 14.5',
+      };
+
+      final oldOrder = OrderModel.fromJson(jsonOld);
+      expect(oldOrder.cleaningPlanId, isNull);
+      expect(oldOrder.sessionNumber, isNull);
+    });
   });
 }

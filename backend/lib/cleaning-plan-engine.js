@@ -180,8 +180,9 @@ export function generateNextSessionOrder({ plan, existingOrders = [] }) {
   const preferredCleanerId = plan.preferredCleanerId || plan.preferred_cleaner_id || null;
   const startTimeStr = plan.startTime || plan.start_time || '09:00';
   const duration = Number(plan.duration || 2);
+  const existingPlanOrders = existingOrders.filter(o => o.cleaning_plan_id === plan.id || o.cleaningPlanId === plan.id);
   const totalCompleted = Number(plan.totalSessionsCompleted !== undefined ? plan.totalSessionsCompleted : (plan.total_sessions_completed || 0));
-  const nextSessionNumber = totalCompleted + 1;
+  const nextSessionNumber = Math.max(existingPlanOrders.length + 1, totalCompleted + 1);
 
   // 2. Conflict Fallback: Periksa apakah petugas favorit bentrok jadwal
   let cleanerIdToAssign = preferredCleanerId;

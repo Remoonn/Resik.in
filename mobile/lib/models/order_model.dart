@@ -23,6 +23,8 @@ class OrderModel {
   final String? paymentTimestamp;
   final String statusPekerjaan;
   final String? preferensiPetugasId;
+  final String? cleaningPlanId;
+  final int? sessionNumber;
   final String? startedAt;
   final String? cancellationReason;
   final String? cancelledBy;
@@ -53,6 +55,8 @@ class OrderModel {
     this.paymentTimestamp,
     required this.statusPekerjaan,
     this.preferensiPetugasId,
+    this.cleaningPlanId,
+    this.sessionNumber,
     this.startedAt,
     this.cancellationReason,
     this.cancelledBy,
@@ -103,6 +107,10 @@ class OrderModel {
       paymentTimestamp: json['payment_timestamp']?.toString(),
       statusPekerjaan: json['status_pekerjaan']?.toString() ?? 'Menunggu Konfirmasi',
       preferensiPetugasId: json['preferensi_petugas_id']?.toString(),
+      cleaningPlanId: json['cleaning_plan_id']?.toString() ?? json['cleaningPlanId']?.toString(),
+      sessionNumber: json['session_number'] is int
+          ? json['session_number'] as int
+          : int.tryParse(json['session_number']?.toString() ?? json['sessionNumber']?.toString() ?? ''),
       startedAt: json['started_at']?.toString(),
       cancellationReason: json['cancellation_reason']?.toString(),
       cancelledBy: json['cancelled_by']?.toString(),
@@ -135,3 +143,5 @@ class OrderModel {
     return map;
   }
 }
+
+typedef Order = OrderModel;

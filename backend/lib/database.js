@@ -921,6 +921,12 @@ export const db = {
             catatan: 'Laporan mutu pekerjaan berhasil diverifikasi dan diserahkan'
           });
 
+          // Hook sinkronisasi Cleaning Plan jika order terkait langganan berkala
+          const orderData = await this.getOrderById(reportPayload.order_id);
+          if (orderData && (orderData.cleaning_plan_id || orderData.cleaningPlanId)) {
+            await this.incrementCleaningPlanSessionsCompleted(orderData.cleaning_plan_id || orderData.cleaningPlanId);
+          }
+
           if (reportPayload.cleaner_id) {
             const { data: cleaner } = await supabaseAdmin
               .from('cleaners')
@@ -992,6 +998,11 @@ export const db = {
         catatan: 'Laporan mutu pekerjaan berhasil diverifikasi dan diserahkan',
         created_at: submittedAt
       });
+
+      // Hook sinkronisasi Cleaning Plan jika order terkait langganan berkala
+      if (order.cleaning_plan_id || order.cleaningPlanId) {
+        await this.incrementCleaningPlanSessionsCompleted(order.cleaning_plan_id || order.cleaningPlanId);
+      }
     }
 
     if (reportPayload.cleaner_id) {
@@ -1444,6 +1455,41 @@ export const db = {
         plan.totalSessionsCompleted = (plan.totalSessionsCompleted || 0) + 1;
         plan.total_sessions_completed = plan.totalSessionsCompleted;
       }
+      plan.updatedAt = new Date().toISOString();
+      plan.updated_at = plan.updatedAt;
+      saveStateToDisk();
+      return normalizeCleaningPlan(plan);
+    }
+    return null;
+  },
+
+  async incrementCleaningPlanSessionsCompleted(planId) {
+    if (!planId) return null;
+    if (isLiveSupabase()) {
+      try {
+        const existing = await this.getCleaningPlanById(planId);
+        if (existing) {
+          const { data, error } = await supabaseAdmin
+            .from('cleaning_plans')
+            .update({
+              total_sessions_completed: (existing.totalSessionsCompleted || 0) + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', planId)
+            .select()
+            .maybeSingle();
+          if (!error && data) {
+            return normalizeCleaningPlan(data);
+          }
+        }
+      } catch (err) {
+        console.warn('[db.incrementCleaningPlanSessionsCompleted] Fallback ke in-memory:', err.message);
+      }
+    }
+    const plan = (inMemoryStore.cleaning_plans || []).find(p => p.id === planId);
+    if (plan) {
+      plan.totalSessionsCompleted = (plan.totalSessionsCompleted || 0) + 1;
+      plan.total_sessions_completed = plan.totalSessionsCompleted;
       plan.updatedAt = new Date().toISOString();
       plan.updated_at = plan.updatedAt;
       saveStateToDisk();

@@ -56,4 +56,47 @@ test('Cleaning Plan Database Store Tests', async (t) => {
     assert.equal(updated.nextSessionDate, '2026-10-26');
     assert.equal(updated.totalSessionsCompleted, 1);
   });
+
+  await t.test('5. incrementCleaningPlanSessionsCompleted menambah totalSessionsCompleted secara independen', async () => {
+    const incremented = await db.incrementCleaningPlanSessionsCompleted(createdPlanId);
+    assert.ok(incremented);
+    assert.equal(incremented.totalSessionsCompleted, 2);
+  });
+
+  await t.test('6. saveQualityReport secara otomatis meng-increment totalSessionsCompleted saat order selesai', async () => {
+    // 1. Buat order terkait cleaning plan
+    const sessionOrder = await db.createOrder({
+      id: 'ord-plan-session-test-01',
+      customer_id: 'usr-cust-test-01',
+      cleaner_id: 'cln-001',
+      service_id: 'srv-002',
+      service_category: 'kos',
+      start_time: '2026-10-19T09:00:00.000Z',
+      duration: 2,
+      total_biaya: 100000,
+      alamat_lengkap: 'Jl. Kaliurang KM 14.5 No. 4',
+      status_pekerjaan: 'Sedang Dikerjakan',
+      cleaning_plan_id: createdPlanId,
+      session_number: 1
+    });
+
+    const beforePlan = await db.getCleaningPlanById(createdPlanId);
+    const prevCompleted = beforePlan.totalSessionsCompleted;
+
+    // 2. Submit quality report untuk menyelesaikan order
+    await db.saveQualityReport({
+      order_id: sessionOrder.id,
+      cleaner_id: 'cln-001',
+      checklist_area: [{ area: 'Kamar Kos', completed: true }],
+      foto_before_url: `orders/${sessionOrder.id}/before.jpg`,
+      foto_after_url: `orders/${sessionOrder.id}/after.jpg`,
+      catatan_petugas: 'Selesai bersih kos',
+      started_at: new Date(Date.now() - 3600000).toISOString(),
+      completed_at: new Date().toISOString()
+    });
+
+    // 3. Verifikasi cleaning plan totalSessionsCompleted bertambah 1
+    const afterPlan = await db.getCleaningPlanById(createdPlanId);
+    assert.equal(afterPlan.totalSessionsCompleted, prevCompleted + 1);
+  });
 });
