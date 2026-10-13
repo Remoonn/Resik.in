@@ -4,6 +4,7 @@ import '../constants.dart';
 import '../models/service_model.dart';
 import '../models/order_model.dart';
 import '../models/cleaner_model.dart';
+import '../models/cleaning_plan_model.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -423,6 +424,135 @@ class ApiService {
       return {
         'success': false,
         'message': 'Gagal terhubung ke layanan Resik AI: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Mengambil daftar paket langganan rutin (GET /api/cleaning-plans)
+  static Future<List<CleaningPlanModel>> fetchCleaningPlans({String? customerId}) async {
+    try {
+      final user = AuthService().currentUser;
+      final targetCustomerId = customerId ?? user?.id ?? '';
+      final queryParam = targetCustomerId.isNotEmpty ? '?customer_id=$targetCustomerId' : '';
+      final url = Uri.parse('${ApiConstants.baseUrl}/cleaning-plans$queryParam');
+      final headers = {
+        if (user?.id != null && user!.id.isNotEmpty) 'x-user-id': user.id,
+        if (user?.role != null && user!.role.isNotEmpty) 'x-user-role': user.role,
+      };
+
+      final response = await _client.get(url, headers: headers).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['success'] == true && body['data'] is List) {
+          final List list = body['data'];
+          return list.map((item) => CleaningPlanModel.fromJson(item)).toList();
+        }
+      }
+      return <CleaningPlanModel>[];
+    } catch (e) {
+      return <CleaningPlanModel>[];
+    }
+  }
+
+  /// Mengambil detail paket langganan dan pesanan sesinya (GET /api/cleaning-plans/:id)
+  static Future<Map<String, dynamic>> fetchCleaningPlanDetail(String planId) async {
+    try {
+      final user = AuthService().currentUser;
+      final url = Uri.parse('${ApiConstants.baseUrl}/cleaning-plans/$planId');
+      final headers = {
+        if (user?.id != null && user!.id.isNotEmpty) 'x-user-id': user.id,
+        if (user?.role != null && user!.role.isNotEmpty) 'x-user-role': user.role,
+      };
+
+      final response = await _client.get(url, headers: headers).timeout(const Duration(seconds: 10));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal mengambil detail paket: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Mendaftarkan paket langganan baru (POST /api/cleaning-plans)
+  static Future<Map<String, dynamic>> createCleaningPlan(Map<String, dynamic> payload) async {
+    try {
+      final user = AuthService().currentUser;
+      final url = Uri.parse('${ApiConstants.baseUrl}/cleaning-plans');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (user?.id != null && user!.id.isNotEmpty) 'x-user-id': user.id,
+        if (user?.role != null && user!.role.isNotEmpty) 'x-user-role': user.role,
+      };
+
+      final response = await _client.post(
+        url,
+        headers: headers,
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal membuat paket langganan: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Mengubah status paket langganan: Aktif, Dijeda, Dibatalkan (PATCH /api/cleaning-plans/:id/status)
+  static Future<Map<String, dynamic>> updateCleaningPlanStatus(String planId, String status) async {
+    try {
+      final user = AuthService().currentUser;
+      final url = Uri.parse('${ApiConstants.baseUrl}/cleaning-plans/$planId/status');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (user?.id != null && user!.id.isNotEmpty) 'x-user-id': user.id,
+        if (user?.role != null && user!.role.isNotEmpty) 'x-user-role': user.role,
+      };
+
+      final response = await _client.patch(
+        url,
+        headers: headers,
+        body: jsonEncode({'status': status}),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal memperbarui status paket: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Menerbitkan sesi order berikutnya secara on-demand (POST /api/cleaning-plans/:id/generate-next-session)
+  static Future<Map<String, dynamic>> generateNextCleaningPlanSession(String planId) async {
+    try {
+      final user = AuthService().currentUser;
+      final url = Uri.parse('${ApiConstants.baseUrl}/cleaning-plans/$planId/generate-next-session');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (user?.id != null && user!.id.isNotEmpty) 'x-user-id': user.id,
+        if (user?.role != null && user!.role.isNotEmpty) 'x-user-role': user.role,
+      };
+
+      final response = await _client.post(
+        url,
+        headers: headers,
+        body: jsonEncode({}),
+      ).timeout(const Duration(seconds: 10));
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal menjadwalkan sesi berikutnya: ${e.toString()}',
         'error': 'NETWORK_ERROR'
       };
     }
