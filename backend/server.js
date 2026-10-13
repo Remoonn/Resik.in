@@ -9,6 +9,7 @@ import authRouter from './routes/auth.js';
 import qualityReportsRouter from './routes/quality-reports.js';
 import reviewsRouter from './routes/reviews.js';
 import aiRouter from './routes/ai.js';
+import cleaningPlansRouter from './routes/cleaning-plans.js';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/quality-reports', qualityReportsRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/cleaning-plans', cleaningPlansRouter);
 
 // 4. Central 404 Not Found Handler
 app.use((req, res) => {
