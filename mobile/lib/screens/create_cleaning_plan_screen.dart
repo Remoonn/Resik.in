@@ -4,14 +4,59 @@ import '../models/cleaner_model.dart';
 import '../services/api_service.dart';
 
 class CreateCleaningPlanScreen extends StatefulWidget {
-  final ServiceModel service;
+  final ServiceModel? service;
+  final List<ServiceModel>? initialServices;
   final List<CleanerModel>? initialCleaners;
 
   const CreateCleaningPlanScreen({
     super.key,
-    required this.service,
+    this.service,
+    this.initialServices,
     this.initialCleaners,
   });
+
+  static final List<ServiceModel> defaultServices = [
+    ServiceModel(
+      id: 'srv-001',
+      namaLayanan: 'Pembersihan Rumah',
+      kategori: 'rumah',
+      deskripsi: 'Pembersihan menyeluruh seluruh ruangan rumah tinggal.',
+      durasiEstimasi: '3 jam',
+      tarifDasar: 150000.0,
+      iconName: 'home',
+      isActive: true,
+    ),
+    ServiceModel(
+      id: 'srv-002',
+      namaLayanan: 'Pembersihan Kos',
+      kategori: 'kos',
+      deskripsi: 'Pembersihan kamar kos dan kamar mandi dalam.',
+      durasiEstimasi: '2 jam',
+      tarifDasar: 80000.0,
+      iconName: 'single_bed',
+      isActive: true,
+    ),
+    ServiceModel(
+      id: 'srv-003',
+      namaLayanan: 'Pembersihan Kantor',
+      kategori: 'kantor',
+      deskripsi: 'Pembersihan meja kerja, lantai, dan ruang pertemuan.',
+      durasiEstimasi: '3 jam',
+      tarifDasar: 200000.0,
+      iconName: 'business_center',
+      isActive: true,
+    ),
+    ServiceModel(
+      id: 'srv-004',
+      namaLayanan: 'Pembersihan Pasca Renovasi',
+      kategori: 'pasca_renovasi',
+      deskripsi: 'Pembersihan debu semen, sisa cat, dan puing halus.',
+      durasiEstimasi: '4 jam',
+      tarifDasar: 350000.0,
+      iconName: 'construction',
+      isActive: true,
+    ),
+  ];
 
   @override
   State<CreateCleaningPlanScreen> createState() => _CreateCleaningPlanScreenState();
@@ -19,6 +64,9 @@ class CreateCleaningPlanScreen extends StatefulWidget {
 
 class _CreateCleaningPlanScreenState extends State<CreateCleaningPlanScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  late ServiceModel _selectedService;
+  late List<ServiceModel> _availableServices;
 
   late TextEditingController _planNameController;
   final TextEditingController _addressController = TextEditingController();
@@ -48,14 +96,38 @@ class _CreateCleaningPlanScreenState extends State<CreateCleaningPlanScreen> {
   @override
   void initState() {
     super.initState();
+    _availableServices = widget.initialServices ?? CreateCleaningPlanScreen.defaultServices;
+    if (widget.service != null) {
+      _selectedService = widget.service!;
+    } else {
+      _selectedService = _availableServices.first;
+      _loadServices();
+    }
+
     _planNameController = TextEditingController(
-      text: 'Langganan ${widget.service.namaLayanan}',
+      text: 'Langganan ${_selectedService.namaLayanan}',
     );
     if (widget.initialCleaners != null) {
       _availableCleaners = widget.initialCleaners!;
     } else {
       _loadCleaners();
     }
+  }
+
+  Future<void> _loadServices() async {
+    try {
+      final services = await ApiService.asyncFetchServices();
+      if (mounted && services.isNotEmpty) {
+        setState(() {
+          _availableServices = services;
+          final match = _availableServices.firstWhere(
+            (s) => s.id == _selectedService.id,
+            orElse: () => _availableServices.first,
+          );
+          _selectedService = match;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -85,7 +157,7 @@ class _CreateCleaningPlanScreenState extends State<CreateCleaningPlanScreen> {
     }
   }
 
-  double get _calculatedPricePerSession => widget.service.tarifDasar * _selectedDuration;
+  double get _calculatedPricePerSession => _selectedService.tarifDasar * _selectedDuration;
 
   Future<void> _selectTime() async {
     final parts = _timeController.text.split(':');
@@ -113,8 +185,8 @@ class _CreateCleaningPlanScreenState extends State<CreateCleaningPlanScreen> {
 
     final payload = {
       'plan_name': _planNameController.text.trim(),
-      'service_category': widget.service.kategori,
-      'service_id': widget.service.id,
+      'service_category': _selectedService.kategori,
+      'service_id': _selectedService.id,
       'frequency': _selectedFrequency,
       'day_of_week': _selectedDayOfWeek,
       'day_name': _daysMap[_selectedDayOfWeek] ?? 'Senin',
@@ -166,6 +238,44 @@ class _CreateCleaningPlanScreenState extends State<CreateCleaningPlanScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 0. Pilihan Kategori Layanan (jika dipanggil tanpa pra-seleksi service)
+              if (widget.service == null) ...[
+                Text(
+                  'Pilih Kategori Layanan',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  key: const Key('dropdown_service_selection'),
+                  isExpanded: true,
+                  initialValue: _selectedService.id,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.cleaning_services_rounded),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  items: _availableServices.map((s) {
+                    return DropdownMenuItem<String>(
+                      value: s.id,
+                      child: Text(
+                        '${s.namaLayanan} (Rp ${_formatCurrency(s.tarifDasar)}/jam)',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedService = _availableServices.firstWhere((s) => s.id == val);
+                        _planNameController.text = 'Langganan ${_selectedService.namaLayanan}';
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // 1. Header Card Info Layanan
               Card(
                 elevation: 2,
@@ -189,14 +299,14 @@ class _CreateCleaningPlanScreenState extends State<CreateCleaningPlanScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.service.namaLayanan,
+                              _selectedService.namaLayanan,
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Tarif Dasar: Rp ${_formatCurrency(widget.service.tarifDasar)} / jam',
+                              'Tarif Dasar: Rp ${_formatCurrency(_selectedService.tarifDasar)} / jam',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Colors.grey[700],
                                   ),
@@ -361,7 +471,7 @@ class _CreateCleaningPlanScreenState extends State<CreateCleaningPlanScreen> {
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Direkomendasikan ${widget.service.durasiEstimasi}',
+                        'Direkomendasikan ${_selectedService.durasiEstimasi}',
                         style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],

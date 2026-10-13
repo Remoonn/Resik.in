@@ -110,4 +110,29 @@ void main() {
     expect(find.text('Belum Ada Paket Langganan'), findsOneWidget);
     expect(find.text('Daftar Layanan Rutin'), findsOneWidget);
   });
+
+  testWidgets('4. Tombol Daftar Layanan Rutin mengarahkan ke form pendaftaran paket (bukan pop/kembali)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CleaningPlansScreen(
+          initialPlans: [],
+        ),
+      ),
+    );
+
+    // Tap tombol Daftar Layanan Rutin
+    final btnDaftar = find.text('Daftar Layanan Rutin');
+    expect(btnDaftar, findsOneWidget);
+    await tester.tap(btnDaftar);
+    await tester.pumpAndSettle();
+
+    // Pastikan berada di layar form pendaftaran
+    expect(find.text('Langganan Kebersihan Rutin'), findsOneWidget);
+    expect(find.byKey(const Key('input_nama_paket')), findsOneWidget);
+  });
 }
+

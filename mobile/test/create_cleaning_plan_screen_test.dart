@@ -88,4 +88,22 @@ void main() {
     // Memastikan chip dua mingguan ter-tap tanpa error
     expect(find.text('Setiap 2 Minggu'), findsWidgets);
   });
+
+  testWidgets('4. CreateCleaningPlanScreen tanpa parameter service menampilkan dropdown pilihan layanan', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CreateCleaningPlanScreen(service: null, initialCleaners: []),
+      ),
+    );
+
+    // Verifikasi dropdown pemilihan layanan tersedia
+    expect(find.byKey(const Key('dropdown_service_selection')), findsOneWidget);
+    // Verifikasi default layanan aktif adalah Pembersihan Rumah
+    expect(find.text('Pembersihan Rumah'), findsWidgets);
+  });
 }
+

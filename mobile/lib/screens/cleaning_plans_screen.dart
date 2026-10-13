@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/cleaning_plan_model.dart';
 import '../services/api_service.dart';
+import 'create_cleaning_plan_screen.dart';
 
 class CleaningPlansScreen extends StatefulWidget {
   final List<CleaningPlanModel>? initialPlans;
@@ -264,11 +265,41 @@ class _CleaningPlansScreenState extends State<CleaningPlansScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            key: const Key('btn_appbar_create_plan'),
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Tambah Paket',
+            onPressed: () async {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateCleaningPlanScreen()),
+              );
+              if (created == true) {
+                _loadPlans();
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadPlans,
           ),
         ],
       ),
+      floatingActionButton: _plans.isNotEmpty
+          ? FloatingActionButton.extended(
+              key: const Key('fab_create_cleaning_plan'),
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateCleaningPlanScreen()),
+                );
+                if (created == true) {
+                  _loadPlans();
+                }
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Tambah Paket'),
+            )
+          : null,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _plans.isEmpty
@@ -320,8 +351,17 @@ class _CleaningPlansScreenState extends State<CleaningPlansScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.add),
+              key: const Key('btn_create_cleaning_plan'),
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateCleaningPlanScreen()),
+                );
+                if (created == true) {
+                  _loadPlans();
+                }
+              },
+              icon: const Icon(Icons.add_rounded),
               label: const Text('Daftar Layanan Rutin'),
             ),
           ],
