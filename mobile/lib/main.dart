@@ -9,6 +9,7 @@ import 'screens/admin_dashboard_screen.dart';
 import 'screens/ai_consultation_screen.dart';
 import 'screens/booking_screen.dart';
 import 'screens/cleaner_dashboard_screen.dart';
+import 'screens/cleaning_plans_screen.dart';
 import 'screens/order_tracking_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
@@ -200,6 +201,48 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              if (user.role == 'customer') ...[
+                const SizedBox(height: 16),
+                ListTile(
+                  key: const Key('session_cleaning_plans_button'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.autorenew_rounded, color: Color(0xFF0284C7), size: 20),
+                  ),
+                  title: const Text(
+                    'Paket Langganan Saya',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.slate900,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Kelola jadwal pembersihan rutin',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 12,
+                      color: AppColors.slate500,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.outlineVariant),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CleaningPlansScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
               const SizedBox(height: 20),
               const Divider(color: Color(0xFFE2E8F0)),
               const SizedBox(height: 12),
@@ -636,6 +679,116 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(width: 4),
                             const Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // Banner Paket Langganan Rutin (Cleaning Plan)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const Key('banner_cleaning_plan'),
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CleaningPlansScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.autorenew_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Paket Langganan Bersih',
+                                    style: TextStyle(
+                                      fontFamily: 'Plus Jakarta Sans',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF38BDF8),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'Hemat & Praktis',
+                                      style: TextStyle(
+                                        fontFamily: 'Plus Jakarta Sans',
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Jadwalkan pembersihan rutin berkala dengan petugas favorit Anda.',
+                                style: TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Colors.white,
+                          size: 14,
                         ),
                       ],
                     ),
@@ -1470,6 +1623,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.onSurface,
                   ),
                 ),
+                if (order.cleaningPlanId != null || order.sessionNumber != null) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.autorenew_rounded, size: 12, color: Color(0xFF0284C7)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Sesi Langganan #${order.sessionNumber ?? 1}',
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Row(
                   children: [
