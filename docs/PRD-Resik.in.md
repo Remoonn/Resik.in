@@ -6,8 +6,8 @@
 **FAKULTAS TEKNOLOGI INDUSTRI**  
 
 - **Nama Mahasiswa:** Agil Seno Adjie
-- **Versi Dokumen:** 1.2 (Hardened & Specification-Complete)
-- **Tanggal Pembaruan:** 26 September 2026
+- **Versi Dokumen:** 2.0 (Phase 3 — Cleaning Plan & Intelligent Conversational Subsistem Integrated)
+- **Tanggal Pembaruan:** 13 Oktober 2026
 - **Status Dokumen:** **Source of Truth (SOT) Utama Fungsional & Spesifikasi Produk**
 
 ---
@@ -16,8 +16,8 @@
 
 | Metadata | Keterangan |
 | :--- | :--- |
-| **Kode Dokumen** | PRD-RESIKIN-2026-V1.2 |
-| **Versi Dokumen** | 1.2 — Final Requirement Hardening: Formula Harga Flat Deterministik, Alur Pembayaran Server-Authoritative, Private Storage & Signed URL Quality Report, Rating Provisional Smart Matching, dan Spesifikasi Audit Reassignment |
+| **Kode Dokumen** | PRD-RESIKIN-2026-V2.0 |
+| **Versi Dokumen** | 2.0 — Milestone V2 / Phase 3 Release: Integrasi Cleaning Plan (Layanan Rutin Berkala FR-12), Dual-Generator Otomasi & Trigger Sidang, serta Resik AI Consultation Subsistem |
 | **Status Proyek** | Prototipe Fungsional — Acuan Mutlak Arsitektur, Backend, dan Frontend |
 | **Bidang Fokus** | Digitalisasi Manajemen Operasional Layanan Jasa Kebersihan *On-Demand* |
 | **Target Pembaca** | Dosen Pembimbing, Dosen Penguji Skripsi, Tech Lead, AI Coding Agents |
@@ -358,7 +358,7 @@ Sistem membedakan tiga peran pengguna dengan isolasi data yang ketat:
   1. Pelanggan dapat mengatur jadwal berlangganan dengan frekuensi: Mingguan atau Dua Mingguan, memilih hari tetap, dan jam kedatangan rutin.
   2. Sistem secara otomatis membentuk draf pesanan baru pada H-2 sebelum siklus jadwal berikutnya tiba.
   3. Pelanggan dapat menghentikan atau menjeda paket langganan kapan saja.
-- **Status:** Fitur resmi **V2 / Phase 3** (*Out of Scope V1*).
+- **Status:** Fitur resmi **V2 / Phase 3** (*Active Implementation via docs/superpowers/specs/2026-10-13-cleaning-plan-design.md*).
 
 ---
 
@@ -576,7 +576,7 @@ erDiagram
 | **Smart Petugas Matching** | FR-09 | **Must Have** | V1 Prototype | **Fitur Bernilai Tambah V1:** Rekomendasi objektif dan transparan ber-rating provisional. |
 | **Quality Report Digital** | FR-10 | **Must Have** | V1 Prototype | **Fitur Bernilai Tambah V1:** Bukti akuntabilitas fisik via private storage sebelum Selesai. |
 | **Rating & Ulasan Pelanggan** | FR-11 | **Should Have**| V1.1 (Phase 2)| Evaluasi reputasi pasca-pesanan selesai. |
-| **Cleaning Plan (Layanan Rutin)** | FR-12 | **Could Have** | V2 (Phase 3) | Paket pembersihan berulang mingguan/dua mingguan. |
+| **Cleaning Plan (Layanan Rutin)** | FR-12 | **Must Have**  | V2 (Phase 3)  | Paket pembersihan berulang mingguan/dua mingguan dengan dual generator terintegrasi siklus 7 status. |
 | **Chatbot Konsultasi AI / Live GPS**| - | **Won't Have** | Out of Scope | Di luar batasan prototipe agar fokus pada integritas operasional. |
 
 ---
