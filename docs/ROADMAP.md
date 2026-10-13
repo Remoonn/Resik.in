@@ -69,15 +69,16 @@ Fokus: Menampung umpan balik pelanggan pasca-pekerjaan dan melakukan iterasi pen
 
 ---
 
-### 2.3 Fase 3: V2 / Phase 3 (Rencana Lanjutan)
-Fokus: Retensi pengguna rutin jangka panjang.
+### 2.3 Fase 3: V2 / Phase 3 (Rencana Lanjutan & Retensi Pelanggan) — Status: Selesai (13 Oktober 2026)
+Fokus: Retensi pengguna rutin jangka panjang & kenyamanan pemesanan otomatis.
 
-- **Fitur Terjadwal:**
-  - **FR-12: Cleaning Plan (Paket Pembersihan Rutin Berkala)**
-    - Pengaturan jadwal rutin: Mingguan atau Dua Mingguan.
-    - Penentuan hari tetap, jam kedatangan rutin, dan preferensi petugas langganan.
-    - Generator draf pesanan otomatis H-2 siklus berjalan.
-    - Pengelolaan jeda/pembatalan paket langganan oleh pelanggan.
+- **Fitur Terjadwal (Implementasi Penuh):**
+  - [x] **FR-12: Cleaning Plan (Paket Pembersihan Rutin Berkala / Langganan Cerdas)**
+    - [x] Database Schema & Indexing (`cleaning_plans` table dengan RLS & audit trail).
+    - [x] Deterministic Scheduling Engine (`backend/lib/cleaning-plan-engine.js`): UTC date math (+7 hari / +14 hari), anti-double booking 30m, idempotency guard, fallback `[Jadwal Bentrok]`.
+    - [x] REST API (`/api/cleaning-plans`): `POST /`, `GET /`, `GET /:id`, `PATCH /:id/status`, `POST /:id/generate-next-session`.
+    - [x] Quality Report Hook: Penambahan counter `sessions_completed` secara otomatis saat laporan mutu sesi disetujui.
+    - [x] Mobile UI Flutter: `CreateCleaningPlanScreen`, `CleaningPlansScreen`, Banner interaktif Beranda, serta Badge Sesi pada `OrderTrackingScreen` dan kartu pesanan.
 
 ---
 

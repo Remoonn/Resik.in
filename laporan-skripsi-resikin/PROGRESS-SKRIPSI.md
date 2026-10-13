@@ -98,18 +98,19 @@
   - Spesifikasi Perangkat Keras (*Hardware Environment*).
   - Perangkat Lunak & Versi Toolchain: Flutter SDK 3.x, Dart 3.x, Node.js 20+, Supabase PostgreSQL 15.
 - [x] **4.2 Implementasi Basis Data & Backend REST API:**
-  - Eksekusi DDL skema relasional di PostgreSQL Supabase Cloud.
-  - Implementasi router modular Node.js: `auth.js`, `cleaners.js`, `orders.js`, `quality-reports.js`, `reviews.js`.
-  - Implementasi arsitektur dual-mode (`mapper.js`, `uuid-sanitizer.js`, `database.js`).
+  - Eksekusi DDL skema relasional di PostgreSQL Supabase Cloud (`schema.sql` termasuk tabel `cleaning_plans`).
+  - Implementasi router modular Node.js: `auth.js`, `cleaners.js`, `orders.js`, `quality-reports.js`, `reviews.js`, `cleaning-plans.js`, `ai.js`.
+  - Implementasi arsitektur dual-mode (`mapper.js`, `uuid-sanitizer.js`, `database.js`, `cleaning-plan-engine.js`).
 - [x] **4.3 Implementasi Antarmuka Mobile Flutter:**
   - Implementasi halaman utama Pelanggan, Petugas (`CleanerDashboardScreen`), dan Admin (`AdminDashboardScreen`).
   - Implementasi widget reaktif: `OrderTrackingScreen`, `QualityReportFormSheet`, `QualityReportScreen`, `ReviewBottomSheet`.
   - Implementasi Chatbot AI Konsultasi Kebutuhan (`AiConsultationScreen`) dengan kartu rekomendasi interaktif langsung ke pemesanan.
+  - Implementasi Subsistem Layanan Rutin Berkala / Cleaning Plan (`CreateCleaningPlanScreen`, `CleaningPlansScreen`, Banner Beranda, dan Badge Sesi).
   - Penegakan perutean otomatis berbasis peran pada `AuthGate`.
 - [x] **4.4 Pengujian Perangkat Lunak:**
   - [x] **Pengujian Otomatis (*Automated Testing*):**
-    - Backend: 106 unit & integration test case (`npm test`) di 21 test suites berstatus 100% PASS.
-    - Mobile: 0 issue pada `flutter analyze` dan 73 widget & unit test case (`flutter test`) berstatus 100% PASS.
+    - Backend: 126 unit & integration test case (`npm test`) di 21 test suites berstatus 100% PASS.
+    - Mobile: 0 issue pada `flutter analyze` dan 87 widget & unit test case (`flutter test`) berstatus 100% PASS.
   - [x] **Pengujian Fungsional (*Black-Box Testing*):**
     - TC-01: Alur pendaftaran dan login Google Sign-In & Email/Password.
     - TC-02: Pemesanan jasa dan rekomendasi petugas cerdas (*Smart Matching*).
@@ -119,7 +120,8 @@
     - TC-06: Validasi *Quality Report Gate* (kunci status Selesai sebelum foto & checklist tervalidasi).
     - TC-07: Pemberian rating bintang dan agregasi reputasi dinamis petugas.
     - TC-08: Pengujian isolasi hak akses (RBAC) pada data pesanan.
-- [x] **4.5 Evaluasi Hasil Pengujian & Analisis Ketercapaian Tujuan:** Seluruh skenario uji memenuhi kriteria penerimaan PRD v1.2.
+    - TC-09: Pengujian pembuatan dan penjadwalan deterministik Cleaning Plan (FR-12).
+- [x] **4.5 Evaluasi Hasil Pengujian & Analisis Ketercapaian Tujuan:** Seluruh skenario uji memenuhi kriteria penerimaan PRD v2.0.
 
 ---
 

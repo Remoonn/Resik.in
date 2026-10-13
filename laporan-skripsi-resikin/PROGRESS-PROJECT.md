@@ -23,8 +23,9 @@
 | **5. Sistem Rating & Ulasan Pelanggan Terverifikasi** | Selesai | 100% | 30 September 2026 |
 | **6. Integrasi Cloud BaaS (Supabase PostgreSQL & Storage)**| Selesai | 100% | 1 Oktober 2026 |
 | **7. Dasbor Multi-Peran (Customer, Cleaner, Admin)** | Selesai | 100% | 10 Oktober 2026 |
-| **8. Pengujian Sistem (Unit, Integration & Widget Test)** | Selesai | 100% | 12 Oktober 2026 |
+| **8. Pengujian Sistem (Unit, Integration & Widget Test)** | Selesai | 100% | 13 Oktober 2026 |
 | **9. Asisten Cerdas & Chatbot AI Konsultasi Kebutuhan** | Selesai | 100% | 12 Oktober 2026 |
+| **10. Subsistem Cleaning Plan (Layanan Rutin Berkala FR-12)** | Selesai | 100% | 13 Oktober 2026 |
 
 ---
 
@@ -117,13 +118,15 @@
   - [x] `test/cleaner_create.test.js`: Validasi pendaftaran petugas baru & otomasi akun Auth.
   - [x] `test/database.test.js` & `test/supabase_client.test.js`: Arsitektur dual-mode & integrasi Supabase.
   - [x] `test/gemini_fallback.test.js`: Validasi Smart Fallback Engine & Intent Matching Resik AI.
-  - [x] `test/ai.test.js`: Validasi endpoint `POST /api/ai/chat` & batas input sanitasi.
-  - Status: **106/106 tests PASS (100% Lulus di 21 Test Suites)**.
+  - [x] `test/cleaning_plan_database.test.js`: Validasi store tabel cleaning_plans & increment session hook.
+  - [x] `test/cleaning_plan_engine.test.js`: Validasi deterministic date calculation & conflict fallback.
+  - [x] `test/cleaning_plans.test.js`: Validasi REST API endpoints /api/cleaning-plans.
+  - Status: **126/126 tests PASS (100% Lulus di 21 Test Suites)**.
 - [x] **Mobile Flutter Test Suite (`flutter test`):**
   - [x] Analisis statis Dart: `flutter analyze` menghasilkan **0 issues found**.
-  - [x] Unit test model: `cleaner_model_test.dart`, `order_model_test.dart`, `quality_report_model_test.dart`, `review_model_test.dart`, `ai_consultation_model_test.dart`.
-  - [x] Widget test antarmuka & otorisasi: `auth_gate_role_test.dart`, `admin_dashboard_screen_test.dart`, `admin_cleaner_status_test.dart`, `admin_cleaner_create_test.dart`, `admin_quality_report_test.dart`, `cleaner_dashboard_screen_test.dart`, `quality_report_screen_test.dart`, `booking_screen_test.dart`, `ai_consultation_screen_test.dart`, `ai_entry_point_test.dart`.
-  - Status: **73/73 tests PASS (100% Lulus)**.
+  - [x] Unit test model: `cleaner_model_test.dart`, `order_model_test.dart`, `quality_report_model_test.dart`, `review_model_test.dart`, `ai_consultation_model_test.dart`, `cleaning_plan_model_test.dart`.
+  - [x] Widget test antarmuka & otorisasi: `auth_gate_role_test.dart`, `admin_dashboard_screen_test.dart`, `admin_cleaner_status_test.dart`, `admin_cleaner_create_test.dart`, `admin_quality_report_test.dart`, `cleaner_dashboard_screen_test.dart`, `quality_report_screen_test.dart`, `booking_screen_test.dart`, `ai_consultation_screen_test.dart`, `ai_entry_point_test.dart`, `create_cleaning_plan_screen_test.dart`, `cleaning_plans_screen_test.dart`, `cleaning_plan_entry_point_test.dart`.
+  - Status: **87/87 tests PASS (100% Lulus)**.
 
 ### 9. Asisten Cerdas & Chatbot AI Konsultasi Kebutuhan "Resik AI" (100% Selesai)
 - [x] **Backend Generative AI & Smart Fallback Service (`backend/lib/gemini.js`):**
@@ -137,3 +140,23 @@
   - [x] Antarmuka chat interaktif `AiConsultationScreen` dengan badge status robot, quick-action chips, typing indicator, auto-scroll, haptic feedback, dan copy message.
   - [x] *In-Chat Actionable Service Card:* Merender kartu ringkasan rekomendasi layanan AI dengan tombol "Pesan Layanan Ini" yang langsung bernavigasi ke `BookingScreen` dengan durasi terisi otomatis (`initialDuration`).
   - [x] Titik masuk intuitif di Beranda pelanggan: Banner "TANYA RESIK AI" yang dapat diklik (*tappable*), Floating Action Button (FAB) "Tanya AI", serta tab navigasi "Resik AI".
+
+### 10. Subsistem Cleaning Plan (Layanan Rutin Berkala / Langganan Cerdas FR-12) (100% Selesai)
+- [x] **Skema Basis Data & Dual-Store Repository:**
+  - [x] Tabel `cleaning_plans` di `database/schema.sql` (frekuensi, hari, jam, preferensi petugas, counter sesi, status).
+  - [x] Dual-mode store di `backend/lib/database.js` & `backend/lib/supabase.js`.
+- [x] **Deterministic Scheduling Engine (`backend/lib/cleaning-plan-engine.js`):**
+  - [x] UTC date math (+7 hari / +14 hari) untuk sesi berulang.
+  - [x] Validasi anti-double booking 30 menit.
+  - [x] Idempotency guard & fallback penanda `[Jadwal Bentrok]`.
+- [x] **Backend REST API (`backend/routes/cleaning-plans.js`):**
+  - [x] Router terpasang di `backend/server.js` (`POST /`, `GET /`, `GET /:id`, `PATCH /:id/status`, `POST /:id/generate-next-session`).
+- [x] **Quality Report Hook & Backward Compatibility:**
+  - [x] Auto-increment `sessions_completed` saat Quality Report disetujui.
+  - [x] Field `cleaningPlanId` & `sessionNumber` pada `OrderModel`.
+- [x] **Mobile Flutter Client (Material 3):**
+  - [x] Model `CleaningPlanModel` di `mobile/lib/models/cleaning_plan_model.dart`.
+  - [x] Method API di `mobile/lib/services/api_service.dart`.
+  - [x] Formulir `CreateCleaningPlanScreen` dengan validasi lengkap.
+  - [x] Dasbor manajemen `CleaningPlansScreen` (jeda, aktifkan, trigger sesi, batalkan).
+  - [x] Integrasi banner Beranda, menu modal profil, dan badge sesi pada pelacakan pesanan.

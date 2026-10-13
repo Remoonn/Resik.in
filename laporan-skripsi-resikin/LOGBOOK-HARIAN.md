@@ -393,3 +393,52 @@ Dokumen ini mencatat secara kronologis seluruh capaian nyata (*deliverables*) ha
 ### 3. Komitmen Output Sesi Berikutnya:
 * Pengujian integrasi live di perangkat fisik smartphone Android via ADB reverse port forwarding, perekaman video demonstrasi, dan finalisasi berkas naskah skripsi lengkap.
 
+---
+
+## Sesi Hari 17: Selasa, 13 Oktober 2026
+
+### 1. Kemajuan Pengembangan Aplikasi (Prototipe Resik.in V2.0 / Phase 3)
+* **Target Sesi:** Implementasi subsistem **Cleaning Plan (Layanan Rutin Berkala / Paket Langganan Cerdas - FR-12)** secara end-to-end (Database, Deterministic Scheduling Engine, REST API, Order Model Backward-Compatibility, Mobile UI & Entry Points) dengan metodologi TDD (Red $\rightarrow$ Green $\rightarrow$ Refactor).
+* **Aktivitas & Hasil Nyata:**
+  * **Database Schema & In-Memory Store Integration:**
+    * Skema tabel `cleaning_plans` di `database/schema.sql` (frekuensi `mingguan`/`dua_mingguan`, `hari_dalam_minggu`, `jam_mulai`, `preferensi_petugas_id`, `sessions_completed`, `next_session_date`, status `aktif`/`jeda`/`selesai`/`dibatalkan`, RLS policies, indexes).
+    * Dual-mode database repository di `backend/lib/database.js` & `backend/lib/supabase.js`.
+  * **Deterministic Scheduling Engine (`backend/lib/cleaning-plan-engine.js`):**
+    * Kalkulasi jadwal sesi berikutnya berbasis UTC date math (+7 hari untuk mingguan, +14 hari untuk dua mingguan).
+    * Validasi pencegahan jadwal bentrok (*Anti-Double Booking*) 30 menit.
+    * Idempotency guard (mencegah duplikasi pembuatan order pada tanggal sesi yang sama).
+    * Fallback cerdas: Jika preferensi petugas bentrok, order tetap dibuat dengan tanda `[Jadwal Bentrok]` dan diserahkan kepada Admin untuk alokasi manual bebas bentrok.
+  * **Backend REST API Route (`backend/routes/cleaning-plans.js`):**
+    * Endpoint terpasang di `backend/server.js`: `POST /api/cleaning-plans`, `GET /api/cleaning-plans`, `GET /api/cleaning-plans/:id`, `PATCH /api/cleaning-plans/:id/status`, `POST /api/cleaning-plans/:id/generate-next-session`.
+    * Enkapsulasi otorisasi berbasis peran (RBAC) dan amplop JSON konsisten.
+  * **Quality Report Hook & Order Backward Compatibility:**
+    * Penambahan field opsional `cleaningPlanId` dan `sessionNumber` pada `OrderModel` di mobile (`mobile/lib/models/order_model.dart`).
+    * Hook otomatis di `backend/lib/database.js` (`incrementCleaningPlanSessionsCompleted`) yang menaikkan counter sesi selesai saat Quality Report sesi pesanan disetujui.
+  * **Mobile Data Models & ApiService Integration:**
+    * Model `CleaningPlanModel` & `CleaningPlanCleanerInfo` di `mobile/lib/models/cleaning_plan_model.dart`.
+    * 5 method API di `mobile/lib/services/api_service.dart`.
+  * **Mobile UI Formulir Pendaftaran (`CreateCleaningPlanScreen`):**
+    * Pilihan frekuensi interaktif, hari pembersihan (Senin–Minggu), jam kedatangan, alamat, patokan, preferensi petugas favorit, dan rincian estimasi tarif.
+  * **Mobile UI Manajemen Langganan (`CleaningPlansScreen`):**
+    * Kartu langganan berdesain Material 3, badge status, tombol Jeda/Aktifkan, tombol trigger manual *"Jadwalkan Sesi Sekarang"*, dan dialog pembatalan paket.
+  * **Mobile UI Integrasi Titik Masuk:**
+    * Banner interaktif Beranda *"Paket Langganan Bersih"* dengan navigasi langsung ke `CleaningPlansScreen`.
+    * Menu *"Paket Langganan Saya"* pada modal profil pengguna di Beranda.
+    * Badge *"Sesi Langganan #X"* pada header `OrderTrackingScreen` dan kartu pesanan di tab Riwayat Pesanan.
+  * **Verifikasi & Pengujian Otomatis Sistem (100% Lulus):**
+    * Backend Test Suite: `cd backend && npm test` $\rightarrow$ **126/126 tests PASS (100% Lulus di 21 Test Suites)**.
+    * Mobile Test Suite: `cd mobile && flutter test` $\rightarrow$ **87/87 tests PASS (100% Lulus)**.
+    * Analisis Statis Dart: `cd mobile && flutter analyze` $\rightarrow$ **No issues found (0 warnings, 0 errors, 0 lints)**.
+* **Bukti/Artefak:**
+  * Backend: `database/schema.sql`, `backend/lib/cleaning-plan-engine.js`, `backend/routes/cleaning-plans.js`, `backend/test/cleaning_plan_database.test.js`, `backend/test/cleaning_plan_engine.test.js`, `backend/test/cleaning_plans.test.js`.
+  * Mobile: `mobile/lib/models/cleaning_plan_model.dart`, `mobile/lib/screens/create_cleaning_plan_screen.dart`, `mobile/lib/screens/cleaning_plans_screen.dart`, `mobile/lib/screens/order_tracking_screen.dart`, `mobile/lib/main.dart`, `mobile/test/cleaning_plan_model_test.dart`, `mobile/test/create_cleaning_plan_screen_test.dart`, `mobile/test/cleaning_plans_screen_test.dart`, `mobile/test/cleaning_plan_entry_point_test.dart`.
+
+### 2. Kemajuan Naskah Skripsi
+* **Capaian:**
+  * Penulisan Bab 4 Subbab 4.4 (Implementasi Subsistem Layanan Rutin Berkala / Cleaning Plan FR-12): Mendokumentasikan arsitektur penjadwalan deterministik, kalkulasi interval berulang, integrasi siklus hidup pesanan bertahap, dan pengujian keandalan sistem.
+  * Pembaruan tabel rekapitulasi pengujian akhir: **126 pengujian backend** dan **87 pengujian mobile** dengan tingkat kelulusan 100%.
+
+### 3. Komitmen Output Sesi Berikutnya:
+* Finalisasi materi paparan sidang skripsi, persiapan berkas demonstrasi aplikasi langsung pada smartphone Android, dan penyusunan naskah skripsi lengkap.
+
+
