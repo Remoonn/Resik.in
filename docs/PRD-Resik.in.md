@@ -38,7 +38,7 @@ Sistem Resik.in dibangun atas **tiga pilar operasional**:
 ### Pembagian Tahapan Produk (*Product Scope Phases*)
 - **V1 (Prototipe Utama):** Fokus pada validasi alur transaksi end-to-end, pencatatan jadwal berbasis interval waktu dan buffer 30 menit, formula harga flat deterministik, alur pembayaran server-authoritative, Smart Matching deterministik (dengan rating provisional untuk petugas baru), konfirmasi penugasan admin, dasbor operasional admin mandiri, pelacakan 7 status, pembatalan terstruktur, serta Quality Report berbasis private storage sebagai gerbang status Selesai.
 - **V1.1 (Fase 2 / Penyempurnaan Pasca-Evaluasi):** Modul Rating & Review dari pelanggan untuk petugas atas pesanan yang telah tuntas, serta penyempurnaan antarmuka dari hasil uji pengguna.
-- **V2 (Fase 3 / Rencana Lanjutan):** Modul Cleaning Plan untuk pemesanan rutin berulang (mingguan / dua mingguan).
+- **V2 (Fase 3 / Rencana Lanjutan & Ekspansi Cerdas):** Modul Cleaning Plan untuk pemesanan rutin berulang (mingguan / dua mingguan) serta subsistem Resik AI Chatbot untuk asisten konsultasi kebutuhan cerdas berbasis generative AI.
 
 ---
 
@@ -103,19 +103,19 @@ Sistem membedakan tiga peran pengguna dengan isolasi data yang ketat:
 
 ---
 
-### 5.3 V2 / Phase 3 (Rencana Lanjutan)
-13. **FR-12: Cleaning Plan (Layanan Rutin Berkala)** (paket langganan mingguan/dua mingguan, hari tetap, jam kedatangan otomatis).
+### 5.3 V2 / Phase 3 (Rencana Lanjutan & Ekspansi Cerdas)
+13. **FR-12: Cleaning Plan (Layanan Rutin Berkala)** (paket langganan mingguan/dua mingguan, hari tetap, jam kedatangan otomatis, dual-generator sesi).
+14. **FR-13: Resik AI (Asisten Cerdas & Chatbot Konsultasi Kebutuhan)** (conversational commerce via Google Gemini API dengan Smart Fallback Engine, FAQ operasional, rekomendasi durasi dan paket hunian, serta kartu aksi pemesanan interaktif in-chat).
 
 ---
 
-### 5.4 Out of Scope (Dilarang Dikerjakan di V1 & V1.1)
+### 5.4 Out of Scope (Dilarang Dikerjakan di V1, V1.1 & V2)
 - ❌ **Live Payment Gateway:** Tidak mengintegrasikan Midtrans/Xendit/Stripe/kartu kredit asli; sistem menggunakan simulasi checkout dummy (`Belum Bayar` $\rightarrow$ `Sudah Bayar` divalidasi server).
-- ❌ **Chatbot AI Interaktif:** Tidak membuat percakapan chatbot konsultasi berbasis AI/LLM.
 - ❌ **Pelacakan Live GPS Map:** Tidak menampilkan pin lokasi bergerak di peta real-time; pelacakan berbasis indikator stepper 7 status.
 - ❌ **Sistem Payroll & Komisi:** Tidak ada perhitungan bagi hasil, gaji bulanan, atau transfer komisi cleaner.
 - ❌ **Registrasi Mandiri Cleaner:** Akun cleaner dibuat secara internal oleh Admin demi integritas profil.
 - ❌ **Manajemen Inventaris Stok Bahan Pembersih:** Tidak ada pencatatan kuantitas sabun, lap, atau cairan pembersih.
-- ❌ **Algoritma Machine Learning / Prediktif:** Mesin rekomendasi murni berbasis formula matematika dan aturan logika transparan.
+- ❌ **Algoritma Machine Learning / Prediktif Berat:** Mesin rekomendasi Smart Matching murni berbasis formula matematika dan aturan logika transparan.
 
 ---
 
@@ -360,6 +360,17 @@ Sistem membedakan tiga peran pengguna dengan isolasi data yang ketat:
   3. Pelanggan dapat menghentikan atau menjeda paket langganan kapan saja.
 - **Status:** Fitur resmi **V2 / Phase 3** (*Active Implementation via docs/superpowers/specs/2026-10-13-cleaning-plan-design.md*).
 
+#### FR-13 — Asisten Cerdas & Chatbot AI Konsultasi Kebutuhan (Resik AI)
+- **Aktor:** Pelanggan, Sistem, Google Gemini API
+- **User Story:** *Sebagai calon pelanggan, saya ingin berkonsultasi mengenai kondisi kotor tempat tinggal saya dan mendapatkan rekomendasi paket serta durasi yang tepat, agar saya tidak salah memilih layanan saat memesan.*
+- **Deskripsi:** Asisten percakapan cerdas dwifungsi (*Customer Care* & *Sales Concierge*) ter-grounding data katalog riil dengan *Smart Fallback Engine* untuk keandalan demonstrasi sidang skripsi (zero-downtime).
+- **Kriteria Penerimaan:**
+  1. Pelanggan dapat berkonsultasi seputar FAQ operasional, jam kerja (08:00–17:00), garansi mutu, dan keluhan kebersihan tempat tinggal.
+  2. Model AI merekomendasikan jenis layanan, estimasi durasi (1–4 Jam), dan harga estimasi secara transparan.
+  3. Menampilkan kartu pemesanan interaktif (*In-Chat Actionable Service Card*) dengan tombol "Pesan Layanan Ini" yang bernavigasi langsung ke `BookingScreen` dengan durasi dan layanan terisi otomatis.
+  4. Didukung *Smart Rule-Based Fallback Engine* di sisi backend untuk menjamin ketersediaan layanan meskipun koneksi internet terputus atau kunci API tidak tersedia saat sidang skripsi.
+- **Status:** Fitur resmi **V2 / Phase 3** (*Implemented & Verified via docs/superpowers/specs/2026-10-10-ai-consultation-chatbot-design.md*).
+
 ---
 
 ## 7. Aturan dan Logika Bisnis Spesifik
@@ -577,7 +588,8 @@ erDiagram
 | **Quality Report Digital** | FR-10 | **Must Have** | V1 Prototype | **Fitur Bernilai Tambah V1:** Bukti akuntabilitas fisik via private storage sebelum Selesai. |
 | **Rating & Ulasan Pelanggan** | FR-11 | **Should Have**| V1.1 (Phase 2)| Evaluasi reputasi pasca-pesanan selesai. |
 | **Cleaning Plan (Layanan Rutin)** | FR-12 | **Must Have**  | V2 (Phase 3)  | Paket pembersihan berulang mingguan/dua mingguan dengan dual generator terintegrasi siklus 7 status. |
-| **Chatbot Konsultasi AI / Live GPS**| - | **Won't Have** | Out of Scope | Di luar batasan prototipe agar fokus pada integritas operasional. |
+| **Resik AI Chatbot Konsultasi**| FR-13 | **Must Have**  | V2 (Phase 3)  | Asisten percakapan AI (Gemini API + Smart Fallback) dengan kartu aksi pemesanan in-chat. |
+| **Pelacakan Live GPS Map** | - | **Won't Have** | Out of Scope | Di luar batasan prototipe; pelacakan cukup menggunakan stepper 7 status. |
 
 ---
 
