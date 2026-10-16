@@ -3,7 +3,9 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 const PAYMENT_STATUS_MAP = {
   'Belum Bayar': 'belum_bayar',
-  'Sudah Bayar': 'sudah_bayar'
+  'Sudah Bayar': 'sudah_bayar',
+  'Kedaluwarsa': 'kedaluwarsa',
+  'Gagal': 'gagal'
 };
 
 const JOB_STATUS_MAP = {
@@ -75,6 +77,10 @@ export function orderToApi(dbRow, service = null, cleaner = null) {
     harga_saat_booking: Number(dbRow.harga_saat_booking || dbRow.total_biaya || 0),
     total_biaya: Number(dbRow.total_biaya || 0),
     status_pembayaran: fromDbPaymentStatus(dbRow.status_pembayaran),
+    payment_method: dbRow.payment_method || dbRow.metode_pembayaran || null,
+    payment_transaction_id: dbRow.payment_transaction_id || null,
+    snap_token: dbRow.snap_token || null,
+    snap_redirect_url: dbRow.snap_redirect_url || null,
     payment_timestamp: dbRow.payment_timestamp,
     status_pekerjaan: fromDbJobStatus(dbRow.status_pekerjaan),
     started_at: dbRow.started_at,
@@ -115,7 +121,12 @@ export function orderToDb(apiPayload) {
     tanggal_layanan: apiPayload.tanggal_layanan,
     jam_mulai: apiPayload.start_time || apiPayload.jam_mulai,
     total_biaya: Number(apiPayload.total_biaya),
-    metode_pembayaran: apiPayload.metode_pembayaran || 'simulasi_dummy',
+    metode_pembayaran: apiPayload.metode_pembayaran || apiPayload.payment_method || 'midtrans',
+    payment_method: apiPayload.payment_method || apiPayload.metode_pembayaran || null,
+    payment_transaction_id: apiPayload.payment_transaction_id || null,
+    snap_token: apiPayload.snap_token || null,
+    snap_redirect_url: apiPayload.snap_redirect_url || null,
+    payment_timestamp: apiPayload.payment_timestamp || null,
     status_pembayaran: toDbPaymentStatus(apiPayload.status_pembayaran),
     status_pekerjaan: toDbJobStatus(apiPayload.status_pekerjaan)
   };

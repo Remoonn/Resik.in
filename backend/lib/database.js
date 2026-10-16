@@ -892,6 +892,98 @@ export const db = {
     return order;
   },
 
+  async updateOrderPaymentDetails(orderId, details = {}) {
+    const now = details.payment_timestamp || new Date().toISOString();
+    const updateFields = {
+      updated_at: now
+    };
+
+    if (details.status_pembayaran) {
+      updateFields.status_pembayaran = toDbPaymentStatus(details.status_pembayaran);
+    }
+    if (details.payment_method !== undefined) {
+      updateFields.payment_method = details.payment_method;
+      updateFields.metode_pembayaran = details.payment_method;
+    }
+    if (details.payment_transaction_id !== undefined) {
+      updateFields.payment_transaction_id = details.payment_transaction_id;
+    }
+    if (details.snap_token !== undefined) {
+      updateFields.snap_token = details.snap_token;
+    }
+    if (details.snap_redirect_url !== undefined) {
+      updateFields.snap_redirect_url = details.snap_redirect_url;
+    }
+    if (details.payment_timestamp !== undefined) {
+      updateFields.payment_timestamp = details.payment_timestamp;
+    }
+
+    if (isLiveSupabase()) {
+      try {
+        const { data: updated, error } = await supabaseAdmin
+          .from('orders')
+          .update(updateFields)
+          .eq('id', orderId)
+          .select()
+          .maybeSingle();
+
+        if (!error && updated) {
+          if (details.status_pembayaran) {
+            await supabaseAdmin.from('status_logs').insert({
+              order_id: orderId,
+              status_sebelumnya: toDbJobStatus('Menunggu Konfirmasi'),
+              status_baru: toDbJobStatus('Menunggu Konfirmasi'),
+              diubah_oleh: sanitizeCustomerId(details.customer_id || updated.customer_id),
+              catatan: details.catatan || `Pembayaran diperbarui: ${details.status_pembayaran} (${details.payment_method || '-'})`
+            });
+          }
+          return orderToApi(updated);
+        }
+      } catch (err) {
+        console.warn('[db.updateOrderPaymentDetails] Fallback ke in-memory:', err.message);
+      }
+    }
+
+    const order = inMemoryStore.orders.find(o => o.id === orderId || o.order_code === orderId);
+    if (!order) return null;
+
+    if (details.status_pembayaran) {
+      order.status_pembayaran = details.status_pembayaran;
+    }
+    if (details.payment_method !== undefined) {
+      order.payment_method = details.payment_method;
+      order.metode_pembayaran = details.payment_method;
+    }
+    if (details.payment_transaction_id !== undefined) {
+      order.payment_transaction_id = details.payment_transaction_id;
+    }
+    if (details.snap_token !== undefined) {
+      order.snap_token = details.snap_token;
+    }
+    if (details.snap_redirect_url !== undefined) {
+      order.snap_redirect_url = details.snap_redirect_url;
+    }
+    if (details.payment_timestamp !== undefined) {
+      order.payment_timestamp = details.payment_timestamp;
+    }
+    order.updated_at = now;
+
+    if (details.status_pembayaran) {
+      inMemoryStore.status_logs.push({
+        id: crypto.randomUUID(),
+        order_id: order.id,
+        status_sebelumnya: order.status_pekerjaan || 'Menunggu Konfirmasi',
+        status_baru: order.status_pekerjaan || 'Menunggu Konfirmasi',
+        diubah_oleh: details.customer_id || order.customer_id || 'system',
+        catatan: details.catatan || `Pembayaran diperbarui: ${details.status_pembayaran} (${details.payment_method || '-'})`,
+        created_at: now
+      });
+    }
+
+    saveStateToDisk();
+    return order;
+  },
+
   // QUALITY REPORTS REPO & STORAGE
   async saveQualityReport(reportPayload) {
     const submittedAt = reportPayload.submitted_at || reportPayload.waktu_submit || new Date().toISOString();

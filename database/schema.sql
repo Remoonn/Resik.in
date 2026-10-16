@@ -100,7 +100,12 @@ CREATE TABLE IF NOT EXISTS public.orders (
     jam_mulai TIME NOT NULL,
     total_biaya NUMERIC(12, 2) NOT NULL,
     metode_pembayaran VARCHAR(50) DEFAULT 'simulasi_dummy',
-    status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'belum_bayar' CHECK (status_pembayaran IN ('belum_bayar', 'sudah_bayar')),
+    status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'belum_bayar' CHECK (status_pembayaran IN ('belum_bayar', 'sudah_bayar', 'kedaluwarsa', 'gagal')),
+    payment_method VARCHAR(50) DEFAULT NULL,
+    payment_transaction_id VARCHAR(100) DEFAULT NULL,
+    snap_token VARCHAR(255) DEFAULT NULL,
+    snap_redirect_url TEXT DEFAULT NULL,
+    payment_timestamp TIMESTAMPTZ DEFAULT NULL,
     status_pekerjaan VARCHAR(40) NOT NULL DEFAULT 'menunggu_konfirmasi' CHECK (status_pekerjaan IN (
         'menunggu_konfirmasi',
         'dikonfirmasi',
