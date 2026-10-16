@@ -6,6 +6,7 @@ import '../models/cleaner_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'order_tracking_screen.dart';
+import 'midtrans_snap_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   final OrderModel order;
@@ -38,126 +39,235 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _isProcessing = true;
     });
 
-    final result = await ApiService.payOrder(_currentOrder.id);
+    try {
+      final tokenRes = await ApiService.getSnapPaymentToken(_currentOrder.id);
+      if (tokenRes['success'] != true || tokenRes['data'] == null) {
+        throw Exception(tokenRes['message'] ?? 'Gagal membuat sesi pembayaran');
+      }
 
-    setState(() {
-      _isProcessing = false;
-    });
+      final redirectUrl = tokenRes['data']['redirect_url']?.toString() ?? '';
 
-    if (!mounted) return;
-
-    if (result['success'] == true && result['data'] != null) {
-      final payData = result['data'];
+      if (!mounted) return;
       setState(() {
-        _currentOrder = OrderModel(
-          id: _currentOrder.id,
-          orderCode: _currentOrder.orderCode,
-          serviceId: _currentOrder.serviceId,
-          serviceName: _currentOrder.serviceName,
-          serviceCategory: _currentOrder.serviceCategory,
-          tanggalLayanan: _currentOrder.tanggalLayanan,
-          startTime: _currentOrder.startTime,
-          endTime: _currentOrder.endTime,
-          duration: _currentOrder.duration,
-          alamatLengkap: _currentOrder.alamatLengkap,
-          patokanLokasi: _currentOrder.patokanLokasi,
-          luasArea: _currentOrder.luasArea,
-          catatanKhusus: _currentOrder.catatanKhusus,
-          hargaSaatBooking: _currentOrder.hargaSaatBooking,
-          totalBiaya: _currentOrder.totalBiaya,
-          statusPembayaran: payData['status_pembayaran'] ?? 'Sudah Bayar',
-          paymentTimestamp: payData['payment_timestamp'],
-          statusPekerjaan: _currentOrder.statusPekerjaan,
-          preferensiPetugasId: _currentOrder.preferensiPetugasId,
-          createdAt: _currentOrder.createdAt,
-        );
+        _isProcessing = false;
       });
 
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surfaceContainerLowest,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          icon: const Icon(Icons.check_circle_rounded, color: AppColors.emerald, size: 56),
-          title: const Text(
-            'Pembayaran Terverifikasi!',
-            style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.onSurface),
+      // Buka In-App WebView Midtrans Snap
+      final bool? isSuccess = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (context) => MidtransSnapScreen(
+            redirectUrl: redirectUrl,
+            orderCode: _currentOrder.orderCode,
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Simulasi pembayaran server-authoritative berhasil divalidasi.',
-                style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Status Pekerjaan:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
-                        Text(
-                          _currentOrder.statusPekerjaan,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.primary),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Waktu Server:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
-                        Text(
-                          _currentOrder.paymentTimestamp ?? '-',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: AppColors.onSurface),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-              ),
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => OrderTrackingScreen(
-                      orderId: _currentOrder.id,
-                      initialOrder: _currentOrder,
-                    ),
-                  ),
-                );
-              },
-              child: const Text('Lacak Pesanan Sekarang', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ],
         ),
       );
-    } else {
+
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = true;
+      });
+
+      // Jalur B: Direct Status Check ke Midtrans Server via backend API
+      final statusRes = await ApiService.checkPaymentStatus(_currentOrder.id);
+
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+      });
+
+      if (statusRes['success'] == true && statusRes['data'] != null) {
+        final updatedOrder = OrderModel.fromJson(statusRes['data'] as Map<String, dynamic>);
+        setState(() {
+          _currentOrder = updatedOrder;
+        });
+
+        if (updatedOrder.statusPembayaran == 'Sudah Bayar') {
+          if (!mounted) return;
+          _showDigitalReceiptModal(context, updatedOrder);
+          return;
+        }
+      }
+
+      if (isSuccess == true) {
+        final refreshed = await ApiService.fetchOrderById(_currentOrder.id);
+        if (refreshed != null && mounted) {
+          setState(() => _currentOrder = refreshed);
+          if (refreshed.statusPembayaran == 'Sudah Bayar') {
+            _showDigitalReceiptModal(context, refreshed);
+            return;
+          }
+        }
+      }
+
+      // Jika belum selesai atau dibatalkan pengguna
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Pembayaran belum selesai. Anda dapat mencoba lagi kapan saja.'),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.onSurface,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            action: SnackBarAction(
+              label: 'Coba Lagi',
+              textColor: AppColors.secondaryContainer,
+              onPressed: _handlePayment,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Gagal memproses pembayaran'),
+          content: Text('Terjadi kesalahan: ${e.toString()}'),
           backgroundColor: AppColors.error,
         ),
       );
     }
+  }
+
+  void _showDigitalReceiptModal(BuildContext context, OrderModel order) {
+    final currencyFormatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerLowest,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                color: AppColors.emeraldLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.verified_rounded,
+                color: AppColors.emerald,
+                size: 38,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Pembayaran Berhasil!',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.onSurface),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Kuitansi Pembayaran Digital',
+              style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.outline),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Dibayar:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                      Text(
+                        currencyFormatter.format(order.totalBiaya),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.emerald),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Metode:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                      Text(
+                        (order.paymentMethod ?? 'Midtrans').toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.onSurface),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('ID Transaksi:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                      Flexible(
+                        child: Text(
+                          order.paymentTransactionId ?? '-',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: AppColors.onSurfaceVariant),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Waktu Bayar:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                      Text(
+                        order.paymentTimestamp != null
+                            ? DateFormat('dd MMM yyyy, HH:mm').format(DateTime.tryParse(order.paymentTimestamp!)?.toLocal() ?? DateTime.now())
+                            : '-',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: AppColors.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => OrderTrackingScreen(
+                        orderId: order.id,
+                        initialOrder: order,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Lacak Pesanan Sekarang', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -366,42 +476,65 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
             const SizedBox(height: 18),
 
-            // 4. Catatan Server-Authoritative
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.primaryLight),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Prototipe V1 Resik.in menggunakan simulasi checkout server-authoritative. Pembayaran divalidasi dan dicatat riil di database backend.',
-                      style: TextStyle(fontSize: 12, color: AppColors.primaryDark, height: 1.4),
+            // 4. Kanal Pembayaran Resmi (Midtrans Badges)
+            if (!isPaid) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.outline),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.shield_rounded, color: AppColors.primary, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Metode Pembayaran Tersedia',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.onSurface),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildPaymentChip(Icons.qr_code_2_rounded, 'QRIS'),
+                        _buildPaymentChip(Icons.account_balance_rounded, 'Virtual Account'),
+                        _buildPaymentChip(Icons.account_balance_wallet_rounded, 'GoPay'),
+                        _buildPaymentChip(Icons.credit_card_rounded, 'Kartu Kredit / Debit'),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Diproses secara aman via Midtrans Payment Gateway dengan enkripsi 256-bit SSL.',
+                      style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 28),
+            ],
 
-            const SizedBox(height: 28),
-
-            // Tombol Simulasi Pembayaran / Lacak Status (Pill Button)
+            // Tombol Pembayaran / Lacak Status (Pill Button)
             SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
                 key: const Key('btn_simulasi_bayar'),
-                icon: Icon(isPaid ? Icons.timeline_rounded : Icons.account_balance_wallet_rounded, size: 20),
+                icon: Icon(isPaid ? Icons.timeline_rounded : Icons.lock_outline_rounded, size: 20),
                 label: _isProcessing
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                      )
                     : Text(
-                        isPaid ? 'Lacak Status Pesanan' : 'Bayar Sekarang (Simulasi)',
+                        isPaid ? 'Lacak Status Pesanan' : 'Pilih Metode Pembayaran',
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                 style: ElevatedButton.styleFrom(
@@ -428,6 +561,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+          ),
+        ],
       ),
     );
   }

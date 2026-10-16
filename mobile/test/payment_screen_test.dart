@@ -24,7 +24,7 @@ void main() {
     statusPekerjaan: 'Menunggu Konfirmasi',
   );
 
-  testWidgets('1. PaymentScreen menampilkan ringkasan pesanan dan status Belum Bayar', (WidgetTester tester) async {
+  testWidgets('1. PaymentScreen menampilkan ringkasan pesanan, badge kanal pembayaran, dan tombol Pilih Metode Pembayaran', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -43,9 +43,11 @@ void main() {
     expect(find.text('Pembersihan Rumah'), findsOneWidget);
     expect(find.textContaining('120.000'), findsWidgets);
 
-    // Verifikasi Tombol Simulasi Pembayaran
-    final payBtn = find.byKey(const Key('btn_simulasi_bayar'));
-    expect(payBtn, findsOneWidget);
-    expect(find.text('Bayar Sekarang (Simulasi)'), findsOneWidget);
+    // Verifikasi Badge Kanal Pembayaran Midtrans
+    expect(find.text('QRIS'), findsOneWidget);
+    expect(find.text('Virtual Account'), findsOneWidget);
+
+    // Verifikasi Tombol Pembayaran Midtrans Snap
+    expect(find.text('Pilih Metode Pembayaran'), findsOneWidget);
   });
 }
