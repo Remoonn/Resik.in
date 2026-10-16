@@ -185,7 +185,82 @@ Seluruh endpoint backend Resik.in menggunakan protokol HTTP/HTTPS dengan format 
   ```
 - **Error Response:** `400 Bad Request`, `401 Unauthorized`.
 
-#### `POST /api/orders/:id/pay` (Simulasi Pembayaran Server-Authoritative)
+#### `POST /api/orders/:id/payment-token` (Inisialisasi Sesi Midtrans Snap)
+- **Method:** `POST`
+- **Endpoint:** `/api/orders/:id/payment-token`
+- **Authorization:** Wajib Pemilik Pesanan (`customer_id = auth.uid()`).
+- **Validation:** Pesanan ada dan berstatus `status_pembayaran = 'Belum Bayar'`.
+- **Server Actions:**
+  - Menghasilkan payload transaksi Midtrans Snap (`gross_amount`, `item_details`, `customer_details`).
+  - Mengirim permintaan ke Midtrans Snap API `https://app.sandbox.midtrans.com/snap/v1/transactions` (atau simulator internal pada mode mock).
+  - Menyimpan `snap_token` dan `snap_redirect_url` ke database `orders`.
+- **Success Response (HTTP 200):**
+  ```json
+  {
+    "success": true,
+    "message": "Token pembayaran berhasil dibuat",
+    "data": {
+      "order_id": "uuid-order",
+      "order_code": "RSK-20261016-001",
+      "gross_amount": 120000,
+      "token": "snap-token-abc-123",
+      "redirect_url": "https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-abc-123"
+    }
+  }
+  ```
+- **Error Response:** `400 Bad Request` (jika sudah lunas), `403 Forbidden` (bukan pemilik), `404 Not Found`, `502 Bad Gateway` (jika gateway gagal).
+
+#### `POST /api/webhooks/midtrans` (Midtrans Webhook Callback — Jalur A)
+- **Method:** `POST`
+- **Endpoint:** `/api/webhooks/midtrans`
+- **Authorization:** Publik (Divalidasi via SHA-512 Signature Hash).
+- **Security Validation:**
+  - Formula Signature: `SHA512(order_id + status_code + gross_amount + server_key)`.
+  - Signature wajib cocok dengan header/payload `signature_key`.
+- **Server Actions:**
+  - Evaluasi `transaction_status`:
+    - `settlement` / `capture` (dengan `fraud_status == 'accept'`): Update `status_pembayaran = 'Sudah Bayar'`, `payment_method`, `payment_transaction_id`, dan `payment_timestamp`.
+    - `cancel` / `expire` / `deny`: Update `payment_method` dan catat riwayat log.
+  - Idempotency guard: Mengabaikan update duplikat jika pesanan telah berstatus `Sudah Bayar`.
+- **Success Response (HTTP 200):**
+  ```json
+  {
+    "success": true,
+    "message": "Webhook processed successfully",
+    "data": {
+      "order_id": "uuid-order",
+      "status_pembayaran": "Sudah Bayar"
+    }
+  }
+  ```
+- **Error Response:** `400 Bad Request` (payload cacat), `401 Unauthorized` (signature mismatch), `404 Not Found`.
+
+#### `POST /api/orders/:id/check-payment-status` (Direct Status Check — Jalur B)
+- **Method:** `POST`
+- **Endpoint:** `/api/orders/:id/check-payment-status`
+- **Authorization:** Wajib Pemilik Pesanan atau Admin.
+- **Purpose:** Mengakomodasi pengujian localhost/mobile tanpa Ngrok public tunnel.
+- **Server Actions:**
+  - Memanggil langsung Midtrans Server API `GET https://api.sandbox.midtrans.com/v2/:order_id/status` (atau internal simulator state).
+  - Jika `transaction_status == 'settlement'` atau `'capture'`, memperbarui status `orders` menjadi `'Sudah Bayar'` beserta metadata transaksi.
+- **Success Response (HTTP 200):**
+  ```json
+  {
+    "success": true,
+    "message": "Status pembayaran berhasil disinkronisasi",
+    "data": {
+      "id": "uuid-order",
+      "order_code": "RSK-20261016-001",
+      "status_pembayaran": "Sudah Bayar",
+      "payment_method": "qris",
+      "payment_transaction_id": "midtrans-txn-12345",
+      "payment_timestamp": "2026-10-17T01:00:00.000Z"
+    }
+  }
+  ```
+- **Error Response:** `403 Forbidden`, `404 Not Found`, `502 Bad Gateway`.
+
+#### `POST /api/orders/:id/pay` (Simulasi Pembayaran Legacy / Fallback)
 - **Method:** `POST`
 - **Endpoint:** `/api/orders/:id/pay`
 - **Authorization:** Wajib Pemilik Pesanan (`customer_id = auth.uid()`).

@@ -156,12 +156,16 @@ Sistem membedakan tiga peran pengguna dengan isolasi data yang ketat:
      - Input `luas_area` (misal: "Tipe 36", "Kamar 3x4 m", "2 Lantai") disimpan sebagai data deskriptif operasional untuk panduan persiapan alat dan beban kerja petugas, bukan sebagai variabel pengali tarif pada V1 Prototype.
   3. **Immutability Nilai Transaksi:**
      - Nilai `harga_saat_booking` dan `total_biaya` tersimpan permanen pada baris `orders`. Perubahan tarif pada tabel master `services` di masa depan tidak boleh mengubah nilai transaksi historis.
-  4. **Alur Pembayaran Server-Authoritative:**
+  4. **Alur Pembayaran Server-Authoritative & Integrasi Midtrans Payment Gateway (Dual-Path & Dual-Mode Sandbox):**
      - Klien dilarang mengirimkan field `status_pembayaran` pada payload pembuatan pesanan (`POST /api/orders`).
      - Server secara otomatis menetapkan status awal: `status_pembayaran = 'Belum Bayar'` dan `payment_timestamp = NULL`.
-     - Pelanggan menjalankan simulasi pembayaran melalui endpoint khusus (`POST /api/orders/:id/pay`).
-     - Server memvalidasi pesanan milik customer bersangkutan, mengubah `status_pembayaran = 'Sudah Bayar'`, mencatat `payment_timestamp = NOW()` (waktu server), dan mencatat aksi ke `status_logs`.
-     - Pesanan yang telah berstatus `Sudah Bayar` tetap berada pada status pekerjaan awal `Menunggu Konfirmasi`.
+     - **Inisialisasi Sesi Midtrans Snap:** Pelanggan meminta Snap token melalui `POST /api/orders/:id/payment-token`. Server memvalidasi kepemilikan pesanan dan mengembalikan `token` serta `redirect_url` dari Midtrans Snap API (atau mock simulator jika offline).
+     - **Dual-Path Verification Architecture:**
+       - *Jalur A (Webhook Asinkron):* Midtrans memicu `POST /api/webhooks/midtrans` saat transaksi selesai. Server memverifikasi signature hash SHA-512 (`order_id + status_code + gross_amount + server_key`) dan memperbarui `status_pembayaran = 'Sudah Bayar'`, `payment_method`, `payment_transaction_id`, serta `payment_timestamp`.
+       - *Jalur B (Direct Status Check):* Klien memanggil `POST /api/orders/:id/check-payment-status` sesaat setelah kembali dari WebView. Server secara aktif menanyakan status transaksi ke Midtrans API (`GET /v2/:order_id/status`) dan memperbarui status pesanan tanpa dependensi pada public tunnel (Ngrok).
+     - **Dual-Mode Engine:** Backend secara otomatis mendeteksi environment `MIDTRANS_SERVER_KEY`. Jika menggunakan key sandbox resmi, komunikasi diarahkan ke API Midtrans Sandbox; jika key bernilai `'mock'` atau offline, engine mengaktifkan Mock Simulator internal untuk keandalan demonstrasi sidang tanpa internet.
+     - **Digital Receipt & UI/UX:** Pelanggan disajikan modal Kuitansi Digital pada `PaymentScreen`, kuitansi persisten yang dapat dibuka kembali di `OrderTrackingScreen`, dan informasi audit transaksi terlihat di dasbor Admin.
+     - **Backward Compatibility:** Endpoint legacy `POST /api/orders/:id/pay` tetap dipertahankan untuk backward compatibility pengujian sistem.
      - **Prasyarat Konfirmasi Admin:** Status `status_pembayaran = 'Sudah Bayar'` merupakan syarat mutlak agar Admin dapat mengonfirmasi pesanan (`Menunggu Konfirmasi` $\rightarrow$ `Dikonfirmasi`). Admin dilarang mengonfirmasi pesanan yang belum lunas.
 
 #### FR-04 — Manajemen Data Master Petugas

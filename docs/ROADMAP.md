@@ -29,7 +29,10 @@ timeline
       Rating & Review Pelanggan : Post-Eval
       Perbaikan UX Hasil Uji : Post-Eval
     section V2 (Phase 3)
-      Cleaning Plan Rutin Berkala : Future
+      Cleaning Plan Rutin Berkala : Completed
+    section V2.1 (Phase 4)
+      Midtrans Snap Sandbox : Value-Added
+      Dual-Path Verification : Value-Added
 ```
 
 ---
@@ -82,9 +85,26 @@ Fokus: Retensi pengguna rutin jangka panjang & kenyamanan pemesanan otomatis.
 
 ---
 
+### 2.4 Fase 4: V2.1 / Phase 4 (Midtrans Payment Gateway Sandbox) — Status: Selesai (17 Oktober 2026)
+Fokus: Integrasi pembayaran digital resmi Midtrans Snap (Sandbox) dengan arsitektur Dual-Path (Webhook SHA-512 + Direct Status Check) dan Dual-Mode Engine (Live Sandbox + Mock Simulator).
+
+- **Fitur Terjadwal (Implementasi Penuh):**
+  - [x] **FR-13: Midtrans Payment Gateway Integration (Dual-Path & Dual-Mode Sandbox)**
+    - [x] Database Schema: Penambahan kolom `payment_method`, `payment_transaction_id`, `snap_token`, `snap_redirect_url`, `payment_timestamp`.
+    - [x] Dual-Mode Midtrans Helper (`backend/lib/midtrans.js`): Komunikasi HTTPS ke API Sandbox Midtrans dan Mock Simulator internal terisolasi.
+    - [x] REST API Endpoints:
+      - `POST /api/orders/:id/payment-token`: Pembuatan token Snap transaksi terotentikasi.
+      - `POST /api/webhooks/midtrans`: Webhook asinkron Jalur A dengan validasi signature hash SHA-512 dan idempotency guard.
+      - `POST /api/orders/:id/check-payment-status`: Direct status check Jalur B untuk pengujian mobile lokal tanpa Ngrok.
+    - [x] Flutter In-App WebView (`MidtransSnapScreen`): Navigasi in-app Snap dengan proteksi skema non-HTTP dan dialog konfirmasi keluar `PopScope`.
+    - [x] Modern `PaymentScreen`: Badge kanal pembayaran resmi (QRIS, VA BCA/Mandiri/BNI, E-Wallet GoPay/ShopeePay), modal Kuitansi Digital bertema *Pristine On-Demand*, dan alur retry pembayaran.
+    - [x] Persistent Receipt & Audit Visibility: Tombol dan modal kuitansi digital persisten di `OrderTrackingScreen` serta tampilan metode dan ID transaksi di dasbor Admin.
+
+---
+
 ## 3. Fitur yang Resmi Ditunda / Out of Scope
-Untuk menjaga fokus penyusunan skripsi, fitur berikut **TIDAK DIKERJAKAN** pada seluruh iterasi V1 maupun V1.1:
-1. Integrasi Payment Gateway Live (Midtrans/Xendit/Stripe).
+Untuk menjaga fokus penyusunan skripsi, fitur berikut **TIDAK DIKERJAKAN** pada seluruh iterasi:
+1. Integrasi Payment Gateway Akun Produksi Live (Midtrans Snap telah diintegrasikan pada mode Sandbox resmi V2.1; integrasi akun Production live dengan settlement perbankan riil tetap di luar lingkup skripsi).
 2. Chatbot AI Konsultasi Kebutuhan.
 3. Pelacakan Koordinat Live GPS pada Peta Interaktif.
 4. Modul Penggajian, Komisi, dan Bagi Hasil Petugas (*Payroll*).
