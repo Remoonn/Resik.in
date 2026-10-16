@@ -76,6 +76,46 @@ class ApiService {
     }
   }
 
+  /// Mendapatkan Snap Payment Token & Redirect URL (POST /api/orders/:id/payment-token)
+  static Future<Map<String, dynamic>> getSnapPaymentToken(String orderId) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/orders/$orderId/payment-token');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+
+      final Map<String, dynamic> body = jsonDecode(response.body);
+      return body;
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal membuat sesi pembayaran Midtrans: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
+  /// Memeriksa status pembayaran secara sinkron (POST /api/orders/:id/check-payment-status)
+  static Future<Map<String, dynamic>> checkPaymentStatus(String orderId) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/orders/$orderId/check-payment-status');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+
+      final Map<String, dynamic> body = jsonDecode(response.body);
+      return body;
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal memeriksa status pembayaran: ${e.toString()}',
+        'error': 'NETWORK_ERROR'
+      };
+    }
+  }
+
   /// Mengambil detail pesanan (GET /api/orders/:id)
   static Future<OrderModel?> fetchOrderById(String orderId) async {
     try {

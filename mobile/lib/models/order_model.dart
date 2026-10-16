@@ -20,6 +20,10 @@ class OrderModel {
   final double hargaSaatBooking;
   final double totalBiaya;
   final String statusPembayaran;
+  final String? paymentMethod;
+  final String? paymentTransactionId;
+  final String? snapToken;
+  final String? snapRedirectUrl;
   final String? paymentTimestamp;
   final String statusPekerjaan;
   final String? preferensiPetugasId;
@@ -52,6 +56,10 @@ class OrderModel {
     required this.hargaSaatBooking,
     required this.totalBiaya,
     required this.statusPembayaran,
+    this.paymentMethod,
+    this.paymentTransactionId,
+    this.snapToken,
+    this.snapRedirectUrl,
     this.paymentTimestamp,
     required this.statusPekerjaan,
     this.preferensiPetugasId,
@@ -104,6 +112,10 @@ class OrderModel {
           ? (json['total_biaya'] as num).toDouble()
           : double.tryParse(json['total_biaya']?.toString() ?? '0.0') ?? 0.0,
       statusPembayaran: json['status_pembayaran']?.toString() ?? 'Belum Bayar',
+      paymentMethod: json['payment_method']?.toString() ?? json['metode_pembayaran']?.toString(),
+      paymentTransactionId: json['payment_transaction_id']?.toString(),
+      snapToken: json['snap_token']?.toString(),
+      snapRedirectUrl: json['snap_redirect_url']?.toString(),
       paymentTimestamp: json['payment_timestamp']?.toString(),
       statusPekerjaan: json['status_pekerjaan']?.toString() ?? 'Menunggu Konfirmasi',
       preferensiPetugasId: json['preferensi_petugas_id']?.toString(),
