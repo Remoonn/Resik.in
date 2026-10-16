@@ -42,6 +42,9 @@ Pada prototipe Resik.in V1 s.d. V2.0:
 | **AC-PAY-06** | Kuitansi Digital | **Given** pembayaran berhasil diverifikasi<br>**When** pelanggan kembali ke `PaymentScreen`<br>**Then** sistem menampilkan dialog Kuitansi Digital berisi total bayar, metode pembayaran, no. referensi, dan tombol *"Lacak Pesanan Sekarang"*. | Feedback konfirmasi yang melegakan pengguna. |
 | **AC-PAY-07** | Dual-Mode Fallback | **Given** `MIDTRANS_SERVER_KEY` kosong di `.env` atau server Midtrans offline<br>**When** pesanan dibayar<br>**Then** backend otomatis beralih ke Mock Simulator internal sehingga proses demo tetap berjalan 100% sukses. | Anti-gagal saat demonstrasi sidang. |
 | **AC-PAY-08** | Idempotensi Transaksi | **Given** pesanan sudah berstatus `Sudah Bayar`<br>**When** webhook notifikasi masuk kembali untuk pesanan yang sama<br>**Then** backend merespons `200 OK` tanpa mengubah data atau menduplikasi catatan riwayat status. | Mencegah anomali data ganda. |
+| **AC-PAY-09** | Kuitansi Persisten | **Given** pesanan sudah berstatus `Sudah Bayar`<br>**When** pelanggan membuka `OrderTrackingScreen`<br>**Then** sistem menyediakan tombol/kartu *"Lihat Kuitansi Pembayaran"* yang memunculkan rincian metode, nomor referensi, dan timestamp settlement kapan saja. | Pengguna dapat melihat bukti bayar kapan saja. |
+| **AC-PAY-10** | Coba Bayar Ulang (Retry) | **Given** sesi Snap sebelumnya kedaluwarsa atau dibatalkan pengguna<br>**When** pelanggan menekan *"Coba Bayar Lagi"* di `PaymentScreen`<br>**Then** backend menghasilkan sesi Snap baru tanpa mengharuskan input ulang data pesanan dari awal. | Mencegah friksi drop-off saat transaksi tertunda. |
+| **AC-PAY-11** | Visibilitas Admin | **Given** pesanan telah dibayar via Midtrans<br>**When** Admin membuka detail pesanan di Dasbor Operasional<br>**Then** Admin dapat melihat kanal pembayaran (`payment_method`) dan nomor transaksi Midtrans (`payment_transaction_id`). | Transparansi operasional penuh bagi pengelola. |
 
 ---
 
@@ -194,6 +197,22 @@ Saat status terkonfirmasi `Sudah Bayar`:
   * Judul: **Pembayaran Terverifikasi!**
   * Kartu rincian: Total Biaya, Metode Pembayaran, ID Transaksi Midtrans, Waktu Transaksi.
   * Tombol Aksi: **"Lacak Pesanan Sekarang"** (Pill button Sky-600) yang langsung membuka `OrderTrackingScreen`.
+
+### 5.4 Kuitansi Persisten di Layar Pelacakan (`OrderTrackingScreen`)
+* Pada layar `OrderTrackingScreen`, jika pesanan telah lunas (`status_pembayaran == 'Sudah Bayar'`), sistem menyematkan kartu info atau tombol aksi **"Lihat Kuitansi Pembayaran"**.
+* Saat ditekan, sistem membuka *Modal Bottom Sheet* Kuitansi Digital yang menampilkan rincian pembayaran lengkap (Metode, ID Transaksi Midtrans, Tanggal/Waktu Settlement) sehingga pengguna dapat menginspeksi bukti pembayaran kapan saja.
+
+### 5.5 Alur Coba Bayar Ulang (*Retry Payment Handling*)
+* Jika pengguna membatalkan Snap WebView di tengah jalan atau sesi pembayaran kedaluwarsa (`status_pembayaran == 'Gagal'` atau masih `'Belum Bayar'`), `PaymentScreen` menampilkan kartu status peringatan amber (`AppColors.warmAmber`) dengan tombol **"Coba Bayar Lagi"**.
+* Menekan tombol ini akan memicu permintaan Snap Token baru ke backend tanpa mereset data rincian pesanan, alamat, jadwal, maupun preferensi petugas yang sudah dipilih.
+
+### 5.6 Visibilitas Operasional Dasbor Admin & Sinergi Fitur
+* **Dasbor Admin (`public/admin.html` & Mobile Admin):**
+  * Pada modal detail pesanan Admin, selain status `Sudah Bayar`, ditampilkan informasi audit tambahan:
+    * Kanal Pembayaran: `payment_method` (contoh: `QRIS (GoPay)`, `BCA Virtual Account`).
+    * ID Transaksi Midtrans: `payment_transaction_id`.
+* **Sinergi Cleaning Plan (FR-12):**
+  * Pesanan berkala yang dihasilkan secara otomatis dari paket langganan rutin (`POST /api/cleaning-plans/:id/trigger-session`) akan langsung terintegrasi dengan alur pembayaran Midtrans ini tanpa memerlukan *endpoint* pembayaran terpisah.
 
 ---
 
