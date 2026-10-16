@@ -18,7 +18,7 @@ class MidtransHelper {
   }
 
   verifySignature({ orderId, statusCode, grossAmount, signatureKey, serverKeyOverride }) {
-    const key = serverKeyOverride || this.serverKey;
+    const key = serverKeyOverride || this.serverKey || 'mock';
     const raw = `${orderId}${statusCode}${grossAmount}${key}`;
     const calculated = crypto.createHash('sha512').update(raw).digest('hex');
     return calculated.toLowerCase() === (signatureKey || '').toLowerCase();

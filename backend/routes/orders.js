@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { inMemoryStore, getServices, saveStateToDisk } from '../lib/supabase.js';
 import { db } from '../lib/database.js';
+import { midtransHelper } from '../lib/midtrans.js';
 
 const router = Router();
 
@@ -284,6 +285,133 @@ router.post('/:id/pay', async (req, res) => {
       payment_timestamp: updated.payment_timestamp
     }
   });
+});
+
+// POST /api/orders/:id/payment-token — Membuat sesi transaksi Midtrans Snap
+router.post('/:id/payment-token', async (req, res) => {
+  const { id } = req.params;
+  const order = await db.getOrderById(id);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: `Pesanan dengan ID ${id} tidak ditemukan`,
+      error: 'ORDER_NOT_FOUND'
+    });
+  }
+
+  if (order.status_pembayaran === 'Sudah Bayar') {
+    return res.status(400).json({
+      success: false,
+      message: 'Pesanan sudah dibayar sebelumnya',
+      error: 'ORDER_ALREADY_PAID'
+    });
+  }
+
+  // Jika snap_token sudah pernah dibuat dan masih tersimpan, gunakan sesi yang ada
+  if (order.snap_token && order.snap_redirect_url) {
+    return res.status(200).json({
+      success: true,
+      message: 'Sesi pembayaran Midtrans Snap aktif ditemukan',
+      data: {
+        token: order.snap_token,
+        redirect_url: order.snap_redirect_url
+      }
+    });
+  }
+
+  try {
+    const snap = await midtransHelper.createSnapTransaction({
+      orderId: order.id,
+      grossAmount: order.total_biaya || order.harga_saat_booking || 0,
+      customerDetails: {
+        first_name: order.customer_name || 'Pelanggan Resik.in'
+      }
+    });
+
+    await db.updateOrderPaymentDetails(order.id, {
+      snap_token: snap.token,
+      snap_redirect_url: snap.redirect_url
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Sesi pembayaran Midtrans Snap berhasil dibuat',
+      data: {
+        token: snap.token,
+        redirect_url: snap.redirect_url
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Gagal membuat sesi pembayaran Midtrans',
+      error: 'PAYMENT_SESSION_FAILED'
+    });
+  }
+});
+
+// POST /api/orders/:id/check-payment-status — Pemeriksaan status sinkron (Jalur B / Localhost)
+router.post('/:id/check-payment-status', async (req, res) => {
+  const { id } = req.params;
+  let order = await db.getOrderById(id);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: `Pesanan dengan ID ${id} tidak ditemukan`,
+      error: 'ORDER_NOT_FOUND'
+    });
+  }
+
+  // Jika sudah lunas, langsung return data terbaru
+  if (order.status_pembayaran === 'Sudah Bayar') {
+    return res.status(200).json({
+      success: true,
+      message: 'Status pembayaran berhasil disinkronkan',
+      data: order
+    });
+  }
+
+  try {
+    const statusData = await midtransHelper.checkTransactionStatus(order.id);
+    if (!statusData) {
+      return res.status(200).json({
+        success: true,
+        message: 'Belum ada transaksi pembayaran aktif',
+        data: order
+      });
+    }
+
+    const txStatus = statusData.transaction_status;
+    const fraudStatus = statusData.fraud_status;
+
+    if (txStatus === 'settlement' || (txStatus === 'capture' && fraudStatus === 'accept')) {
+      await db.updateOrderPaymentDetails(order.id, {
+        status_pembayaran: 'Sudah Bayar',
+        payment_method: statusData.payment_type || 'midtrans',
+        payment_transaction_id: statusData.transaction_id || null,
+        payment_timestamp: statusData.settlement_time || new Date().toISOString()
+      });
+    } else if (['cancel', 'deny', 'expire'].includes(txStatus)) {
+      await db.updateOrderPaymentDetails(order.id, {
+        status_pembayaran: txStatus === 'expire' ? 'Kedaluwarsa' : 'Gagal'
+      });
+    }
+
+    const freshOrder = await db.getOrderById(order.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Status pembayaran berhasil disinkronkan',
+      data: freshOrder || order
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Gagal memeriksa status pembayaran',
+      error: 'CHECK_PAYMENT_STATUS_FAILED'
+    });
+  }
 });
 
 // PATCH /api/orders/:id/status — Transisi status sekuensial mutlak
