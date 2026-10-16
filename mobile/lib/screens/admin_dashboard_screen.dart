@@ -749,6 +749,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12, color: Color(0xFF3F4850)),
           ),
+          if (isLunas) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F8F5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFD4F7DC)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.receipt_long_rounded, size: 14, color: Color(0xFF006947)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${(order.paymentMethod ?? "Midtrans").toUpperCase()} • ID: ${order.paymentTransactionId ?? "-"}',
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF006947),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
 
           // Petugas Preference Info Badge
@@ -1166,6 +1195,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12, color: Color(0xFF3F4850)),
           ),
+          if (order.statusPembayaran == 'Sudah Bayar') ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.receipt_long_rounded, size: 13, color: Color(0xFF006947)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Lunas • ${(order.paymentMethod ?? "Midtrans").toUpperCase()} (${order.paymentTransactionId ?? "-"})',
+                    style: const TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF006947),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (cleaner != null) ...[
             const SizedBox(height: 10),
             Container(
