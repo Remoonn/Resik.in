@@ -1,6 +1,6 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 import servicesRouter from './routes/services.js';
 import cleanersRouter from './routes/cleaners.js';
@@ -11,8 +11,6 @@ import reviewsRouter from './routes/reviews.js';
 import aiRouter from './routes/ai.js';
 import cleaningPlansRouter from './routes/cleaning-plans.js';
 import webhooksRouter from './routes/webhooks.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

@@ -2,13 +2,43 @@ import crypto from 'node:crypto';
 
 class MidtransHelper {
   constructor() {
-    this.serverKey = process.env.MIDTRANS_SERVER_KEY || '';
-    this.clientKey = process.env.MIDTRANS_CLIENT_KEY || '';
-    this.isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
-    this.snapBaseUrl = this.isProduction
+    this._serverKey = process.env.MIDTRANS_SERVER_KEY || '';
+    this._clientKey = process.env.MIDTRANS_CLIENT_KEY || '';
+    this._isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+  }
+
+  get serverKey() {
+    return process.env.MIDTRANS_SERVER_KEY || this._serverKey || '';
+  }
+
+  set serverKey(val) {
+    this._serverKey = val;
+  }
+
+  get clientKey() {
+    return process.env.MIDTRANS_CLIENT_KEY || this._clientKey || '';
+  }
+
+  set clientKey(val) {
+    this._clientKey = val;
+  }
+
+  get isProduction() {
+    return process.env.MIDTRANS_IS_PRODUCTION === 'true' || this._isProduction;
+  }
+
+  set isProduction(val) {
+    this._isProduction = Boolean(val);
+  }
+
+  get snapBaseUrl() {
+    return this.isProduction
       ? 'https://app.midtrans.com/snap/v1/transactions'
       : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
-    this.apiBaseUrl = this.isProduction
+  }
+
+  get apiBaseUrl() {
+    return this.isProduction
       ? 'https://api.midtrans.com/v2'
       : 'https://api.sandbox.midtrans.com/v2';
   }

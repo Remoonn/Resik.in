@@ -23,11 +23,15 @@ describe('Admin Cleaner Status Management API & Store Tests', () => {
     const serviceRumah = sBody.data.find(s => s.kategori === 'rumah');
     sampleServiceId = serviceRumah?.id || 'srv-001-rumah';
 
-    const cRes = await fetch(`${baseUrl}/api/cleaners`);
-    const cBody = await cRes.json();
-    if (cBody.data && cBody.data.length > 0) {
-      targetCleanerId = cBody.data[0].id;
-    }
+    const createdCleaner = await db.createCleaner({
+      nama: 'Petugas Uji Status',
+      nomor_telepon: '081234567890',
+      keahlian: ['rumah', 'kos'],
+      rating_rata_rata: 4.8,
+      total_pekerjaan: 10,
+      status_operasional: 'Aktif'
+    });
+    targetCleanerId = createdCleaner.id;
   });
 
   after(async () => {
