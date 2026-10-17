@@ -77,12 +77,15 @@ class ApiService {
   }
 
   /// Mendapatkan Snap Payment Token & Redirect URL (POST /api/orders/:id/payment-token)
-  static Future<Map<String, dynamic>> getSnapPaymentToken(String orderId) async {
+  static Future<Map<String, dynamic>> getSnapPaymentToken(String orderId, {String? paymentMethod}) async {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/orders/$orderId/payment-token');
       final response = await _client.post(
         url,
         headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          if (paymentMethod != null && paymentMethod.isNotEmpty) 'payment_method': paymentMethod,
+        }),
       ).timeout(const Duration(seconds: 15));
 
       final Map<String, dynamic> body = jsonDecode(response.body);

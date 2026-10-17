@@ -24,7 +24,7 @@ class MidtransHelper {
     return calculated.toLowerCase() === (signatureKey || '').toLowerCase();
   }
 
-  async createSnapTransaction({ orderId, grossAmount, customerDetails, forceMock = false }) {
+  async createSnapTransaction({ orderId, grossAmount, customerDetails, paymentMethod, forceMock = false }) {
     if (this.isMockMode() || forceMock) {
       const mockToken = `mock-snap-${orderId}-${Date.now()}`;
       return {
@@ -43,6 +43,18 @@ class MidtransHelper {
         first_name: 'Pelanggan Resik.in'
       }
     };
+
+    if (paymentMethod) {
+      if (paymentMethod === 'qris') {
+        payload.enabled_payments = ['qris', 'gopay', 'shopeepay'];
+      } else if (paymentMethod === 'bank_transfer') {
+        payload.enabled_payments = ['bca_va', 'bni_va', 'bri_va', 'permata_va', 'echannel'];
+      } else if (paymentMethod === 'gopay') {
+        payload.enabled_payments = ['gopay', 'qris'];
+      } else if (paymentMethod === 'credit_card') {
+        payload.enabled_payments = ['credit_card'];
+      }
+    }
 
     const authHeader = 'Basic ' + Buffer.from(this.serverKey + ':').toString('base64');
     const response = await fetch(this.snapBaseUrl, {

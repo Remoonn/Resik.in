@@ -27,11 +27,27 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   late OrderModel _currentOrder;
   bool _isProcessing = false;
+  String? _selectedMethod;
 
   @override
   void initState() {
     super.initState();
     _currentOrder = widget.order;
+  }
+
+  String _getMethodLabel(String method) {
+    switch (method) {
+      case 'qris':
+        return 'QRIS';
+      case 'bank_transfer':
+        return 'Virtual Account';
+      case 'gopay':
+        return 'GoPay';
+      case 'credit_card':
+        return 'Kartu Kredit / Debit';
+      default:
+        return 'Metode Pembayaran';
+    }
   }
 
   Future<void> _handlePayment() async {
@@ -40,7 +56,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
-      final tokenRes = await ApiService.getSnapPaymentToken(_currentOrder.id);
+      final tokenRes = await ApiService.getSnapPaymentToken(
+        _currentOrder.id,
+        paymentMethod: _selectedMethod,
+      );
       if (tokenRes['success'] != true || tokenRes['data'] == null) {
         throw Exception(tokenRes['message'] ?? 'Gagal membuat sesi pembayaran');
       }
@@ -52,12 +71,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isProcessing = false;
       });
 
-      // Buka In-App WebView Midtrans Snap
+      // Buka In-App WebView Midtrans Snap (atau Simulator jika mode mock)
       final bool? isSuccess = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
           builder: (context) => MidtransSnapScreen(
             redirectUrl: redirectUrl,
             orderCode: _currentOrder.orderCode,
+            paymentMethod: _selectedMethod,
+            totalBiaya: _currentOrder.totalBiaya,
           ),
         ),
       );
@@ -503,10 +524,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _buildPaymentChip(Icons.qr_code_2_rounded, 'QRIS'),
-                        _buildPaymentChip(Icons.account_balance_rounded, 'Virtual Account'),
-                        _buildPaymentChip(Icons.account_balance_wallet_rounded, 'GoPay'),
-                        _buildPaymentChip(Icons.credit_card_rounded, 'Kartu Kredit / Debit'),
+                        _buildPaymentChip(
+                          icon: Icons.qr_code_2_rounded,
+                          label: 'QRIS',
+                          methodKey: 'qris',
+                        ),
+                        _buildPaymentChip(
+                          icon: Icons.account_balance_rounded,
+                          label: 'Virtual Account',
+                          methodKey: 'bank_transfer',
+                        ),
+                        _buildPaymentChip(
+                          icon: Icons.account_balance_wallet_rounded,
+                          label: 'GoPay',
+                          methodKey: 'gopay',
+                        ),
+                        _buildPaymentChip(
+                          icon: Icons.credit_card_rounded,
+                          label: 'Kartu Kredit / Debit',
+                          methodKey: 'credit_card',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -534,7 +571,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                       )
                     : Text(
-                        isPaid ? 'Lacak Status Pesanan' : 'Pilih Metode Pembayaran',
+                        isPaid
+                            ? 'Lacak Status Pesanan'
+                            : (_selectedMethod != null
+                                ? 'Bayar via ${_getMethodLabel(_selectedMethod!)}'
+                                : 'Pilih Metode Pembayaran'),
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                 style: ElevatedButton.styleFrom(
@@ -565,24 +606,57 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildPaymentChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.outline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.primary),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+  Widget _buildPaymentChip({
+    required IconData icon,
+    required String label,
+    required String methodKey,
+  }) {
+    final isSelected = _selectedMethod == methodKey;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedMethod = isSelected ? null : methodKey;
+        });
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.outline,
+            width: isSelected ? 1.5 : 1,
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? AppColors.primary : AppColors.onSurface,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.check_circle_rounded,
+                size: 14,
+                color: AppColors.primary,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

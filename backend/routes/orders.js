@@ -308,8 +308,8 @@ router.post('/:id/payment-token', async (req, res) => {
     });
   }
 
-  // Jika snap_token sudah pernah dibuat dan masih tersimpan, gunakan sesi yang ada
-  if (order.snap_token && order.snap_redirect_url) {
+  // Jika snap_token sudah pernah dibuat dan masih tersimpan tanpa request metode khusus/refresh, gunakan sesi yang ada
+  if (order.snap_token && order.snap_redirect_url && !req.body?.payment_method && !req.body?.refresh) {
     return res.status(200).json({
       success: true,
       message: 'Sesi pembayaran Midtrans Snap aktif ditemukan',
@@ -326,7 +326,8 @@ router.post('/:id/payment-token', async (req, res) => {
       grossAmount: order.total_biaya || order.harga_saat_booking || 0,
       customerDetails: {
         first_name: order.customer_name || 'Pelanggan Resik.in'
-      }
+      },
+      paymentMethod: req.body?.payment_method
     });
 
     await db.updateOrderPaymentDetails(order.id, {

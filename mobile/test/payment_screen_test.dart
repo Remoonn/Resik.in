@@ -50,4 +50,34 @@ void main() {
     // Verifikasi Tombol Pembayaran Midtrans Snap
     expect(find.text('Pilih Metode Pembayaran'), findsOneWidget);
   });
+
+  testWidgets('2. Mengetuk chip metode pembayaran mengubah metode yang dipilih dan teks tombol', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PaymentScreen(order: dummyOrder),
+      ),
+    );
+
+    // Default: tombol menampilkan 'Pilih Metode Pembayaran'
+    expect(find.text('Pilih Metode Pembayaran'), findsOneWidget);
+
+    // Ketuk chip QRIS
+    await tester.tap(find.text('QRIS'));
+    await tester.pump();
+    expect(find.text('Bayar via QRIS'), findsOneWidget);
+
+    // Ketuk chip GoPay
+    await tester.tap(find.text('GoPay'));
+    await tester.pump();
+    expect(find.text('Bayar via GoPay'), findsOneWidget);
+
+    // Ketuk chip Virtual Account
+    await tester.tap(find.text('Virtual Account'));
+    await tester.pump();
+    expect(find.text('Bayar via Virtual Account'), findsOneWidget);
+  });
 }
